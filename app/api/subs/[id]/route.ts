@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { AirtableError } from "@/lib/airtable/client";
+import { errorResponse } from "@/lib/airtable/errors";
 import { SubsRepo } from "@/lib/airtable/subs";
+import { SubStatus } from "@/lib/airtable/types";
 
 export const dynamic = "force-dynamic";
 
@@ -20,12 +21,11 @@ export async function GET(_req: Request, { params }: Ctx) {
 
 const PatchBody = z.object({
   name: z.string().optional(),
-  contactName: z.string().optional(),
-  phone: z.string().optional(),
-  email: z.string().optional(),
-  trade: z.string().optional(),
-  active: z.boolean().optional(),
-  notes: z.string().optional(),
+  contactName: z.string().nullable().optional(),
+  phone: z.string().nullable().optional(),
+  email: z.string().nullable().optional(),
+  status: SubStatus.nullable().optional(),
+  notes: z.string().nullable().optional(),
 });
 
 export async function PATCH(req: Request, { params }: Ctx) {
@@ -33,8 +33,8 @@ export async function PATCH(req: Request, { params }: Ctx) {
   let body: z.infer<typeof PatchBody>;
   try {
     body = PatchBody.parse(await req.json());
-  } catch {
-    return NextResponse.json({ error: "Bad body" }, { status: 400 });
+  } catch (err) {
+    return errorResponse(err);
   }
   try {
     const sub = await SubsRepo.update(id, body);
@@ -52,15 +52,4 @@ export async function DELETE(_req: Request, { params }: Ctx) {
   } catch (err) {
     return errorResponse(err);
   }
-}
-
-function errorResponse(err: unknown) {
-  if (err instanceof AirtableError) {
-    return NextResponse.json(
-      { error: err.message, type: err.type },
-      { status: err.status },
-    );
-  }
-  const message = err instanceof Error ? err.message : "Unknown error";
-  return NextResponse.json({ error: message }, { status: 500 });
 }

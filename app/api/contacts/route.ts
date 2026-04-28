@@ -1,17 +1,14 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { ContactsRepo } from "@/lib/airtable/contacts";
 import { errorResponse } from "@/lib/airtable/errors";
-import { SubsRepo } from "@/lib/airtable/subs";
-import { SubStatus } from "@/lib/airtable/types";
 
 export const dynamic = "force-dynamic";
 
 const Query = z.object({
-  activeOnly: z
-    .union([z.literal("true"), z.literal("false")])
-    .optional()
-    .transform((v) => v === "true"),
+  search: z.string().optional(),
+  limit: z.coerce.number().int().positive().max(200).optional(),
 });
 
 export async function GET(req: Request) {
@@ -24,20 +21,22 @@ export async function GET(req: Request) {
     );
   }
   try {
-    const subs = await SubsRepo.list(params.data);
-    return NextResponse.json({ subs });
+    const contacts = await ContactsRepo.list(params.data);
+    return NextResponse.json({ contacts });
   } catch (err) {
     return errorResponse(err);
   }
 }
 
 const CreateBody = z.object({
-  name: z.string().min(1),
-  contactName: z.string().optional(),
+  firstName: z.string().min(1),
+  lastName: z.string().min(1),
+  email: z.string().email().optional().or(z.literal("")),
   phone: z.string().optional(),
-  email: z.string().optional(),
-  status: SubStatus.optional(),
-  notes: z.string().optional(),
+  street: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  zip: z.string().optional(),
 });
 
 export async function POST(req: Request) {
@@ -48,8 +47,11 @@ export async function POST(req: Request) {
     return errorResponse(err);
   }
   try {
-    const sub = await SubsRepo.create(body);
-    return NextResponse.json({ sub }, { status: 201 });
+    const contact = await ContactsRepo.create({
+      ...body,
+      email: body.email || undefined,
+    });
+    return NextResponse.json({ contact }, { status: 201 });
   } catch (err) {
     return errorResponse(err);
   }

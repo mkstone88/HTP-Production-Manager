@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { AirtableError } from "@/lib/airtable/client";
+import { errorResponse } from "@/lib/airtable/errors";
 import { JobsRepo } from "@/lib/airtable/jobs";
+import { JobStatus, ProjectType } from "@/lib/airtable/types";
 
 export const dynamic = "force-dynamic";
 
@@ -18,15 +19,25 @@ export async function GET(_req: Request, { params }: Ctx) {
   }
 }
 
+/**
+ * Field-by-field semantics:
+ *  - Omitted key: leave field untouched.
+ *  - `null`: clear the field on Airtable.
+ *  - String value: set the field.
+ *
+ * `name`, `customerName`, `address` are NOT patchable — they're formula/lookup fields.
+ */
+const DateOnly = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+
 const PatchBody = z.object({
-  name: z.string().optional(),
-  client: z.string().optional(),
-  address: z.string().optional(),
-  status: z.string().optional(),
-  scheduledStart: z.string().nullable().optional(),
-  scheduledEnd: z.string().nullable().optional(),
+  jobNumber: z.string().nullable().optional(),
+  customerId: z.string().nullable().optional(),
+  status: JobStatus.nullable().optional(),
+  projectType: ProjectType.nullable().optional(),
+  scheduledStart: DateOnly.nullable().optional(),
+  scheduledEnd: DateOnly.nullable().optional(),
   assignedSubId: z.string().nullable().optional(),
-  notes: z.string().optional(),
+  notes: z.string().nullable().optional(),
 });
 
 export async function PATCH(req: Request, { params }: Ctx) {
@@ -34,16 +45,11 @@ export async function PATCH(req: Request, { params }: Ctx) {
   let body: z.infer<typeof PatchBody>;
   try {
     body = PatchBody.parse(await req.json());
-  } catch {
-    return NextResponse.json({ error: "Bad body" }, { status: 400 });
-  }
-  // Convert nulls to "" so Airtable clears the field.
-  const patch: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(body)) {
-    patch[k] = v === null ? "" : v;
+  } catch (err) {
+    return errorResponse(err);
   }
   try {
-    const job = await JobsRepo.update(id, patch);
+    const job = await JobsRepo.update(id, body);
     return NextResponse.json({ job });
   } catch (err) {
     return errorResponse(err);
@@ -58,15 +64,4 @@ export async function DELETE(_req: Request, { params }: Ctx) {
   } catch (err) {
     return errorResponse(err);
   }
-}
-
-function errorResponse(err: unknown) {
-  if (err instanceof AirtableError) {
-    return NextResponse.json(
-      { error: err.message, type: err.type },
-      { status: err.status },
-    );
-  }
-  const message = err instanceof Error ? err.message : "Unknown error";
-  return NextResponse.json({ error: message }, { status: 500 });
 }

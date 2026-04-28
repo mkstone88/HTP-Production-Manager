@@ -2,50 +2,88 @@ import "server-only";
 
 import { airtable, type AirtableRecord } from "./client";
 import { jobFields, tables } from "./mapping";
-import type { Job } from "./types";
+import type { Job, JobStatus, ProjectType } from "./types";
 
-type JobAirtableFields = {
-  [K in keyof typeof jobFields]?: unknown;
-};
+type JobAirtableFields = Record<string, unknown>;
 
-function fromRecord(rec: AirtableRecord<Record<string, unknown>>): Job {
-  const f = rec.fields;
-  const link = f[jobFields.assignedSub];
-  const assignedSubId = Array.isArray(link) && link.length > 0 ? String(link[0]) : undefined;
-
-  return {
-    id: rec.id,
-    name: String(f[jobFields.name] ?? ""),
-    client: optString(f[jobFields.client]),
-    address: optString(f[jobFields.address]),
-    status: optString(f[jobFields.status]),
-    scheduledStart: optString(f[jobFields.scheduledStart]),
-    scheduledEnd: optString(f[jobFields.scheduledEnd]),
-    assignedSubId,
-    notes: optString(f[jobFields.notes]),
-  };
-}
-
-function optString(v: unknown): string | undefined {
+function firstString(v: unknown): string | undefined {
+  if (Array.isArray(v)) {
+    const first = v[0];
+    return first === undefined || first === null ? undefined : String(first);
+  }
   if (v === undefined || v === null || v === "") return undefined;
   return String(v);
 }
 
-function toFields(patch: Partial<Job>): Record<string, unknown> {
+function firstLinkId(v: unknown): string | undefined {
+  return Array.isArray(v) && v.length > 0 ? String(v[0]) : undefined;
+}
+
+function fromRecord(rec: AirtableRecord<JobAirtableFields>): Job {
+  const f = rec.fields;
+  return {
+    id: rec.id,
+    name: String(f[jobFields.name] ?? ""),
+    jobNumber: firstString(f[jobFields.jobNumber]),
+    customerId: firstLinkId(f[jobFields.customer]),
+    customerName: firstString(f[jobFields.customerName]),
+    address: firstString(f[jobFields.address]),
+    status: firstString(f[jobFields.status]) as JobStatus | undefined,
+    projectType: firstString(f[jobFields.projectType]) as ProjectType | undefined,
+    scheduledStart: firstString(f[jobFields.scheduledStart]),
+    scheduledEnd: firstString(f[jobFields.scheduledEnd]),
+    assignedSubId: firstLinkId(f[jobFields.assignedSub]),
+    notes: firstString(f[jobFields.notes]),
+  };
+}
+
+/**
+ * Coerce an inbound value into what Airtable expects for the corresponding field.
+ * `undefined` means "don't touch this field". `null` means "clear it" — Airtable
+ * accepts null to clear linked records and dates, which the previous "" hack did not.
+ */
+type JobPatch = Partial<{
+  jobNumber: string | null;
+  customerId: string | null;
+  status: JobStatus | null;
+  projectType: ProjectType | null;
+  scheduledStart: string | null;
+  scheduledEnd: string | null;
+  assignedSubId: string | null;
+  notes: string | null;
+}>;
+
+function toFields(patch: JobPatch): Record<string, unknown> {
   const out: Record<string, unknown> = {};
-  if (patch.name !== undefined) out[jobFields.name] = patch.name;
-  if (patch.client !== undefined) out[jobFields.client] = patch.client;
-  if (patch.address !== undefined) out[jobFields.address] = patch.address;
-  if (patch.status !== undefined) out[jobFields.status] = patch.status;
+  if (patch.jobNumber !== undefined)
+    out[jobFields.jobNumber] = patch.jobNumber ?? "";
+  if (patch.customerId !== undefined)
+    out[jobFields.customer] = patch.customerId ? [patch.customerId] : [];
+  if (patch.status !== undefined)
+    out[jobFields.status] = patch.status ?? null;
+  if (patch.projectType !== undefined)
+    out[jobFields.projectType] = patch.projectType ?? null;
   if (patch.scheduledStart !== undefined)
-    out[jobFields.scheduledStart] = patch.scheduledStart;
+    out[jobFields.scheduledStart] = patch.scheduledStart ?? null;
   if (patch.scheduledEnd !== undefined)
-    out[jobFields.scheduledEnd] = patch.scheduledEnd;
+    out[jobFields.scheduledEnd] = patch.scheduledEnd ?? null;
   if (patch.assignedSubId !== undefined)
     out[jobFields.assignedSub] = patch.assignedSubId ? [patch.assignedSubId] : [];
-  if (patch.notes !== undefined) out[jobFields.notes] = patch.notes;
+  if (patch.notes !== undefined)
+    out[jobFields.notes] = patch.notes ?? "";
   return out;
 }
+
+export type CreateJobInput = {
+  jobNumber: string;
+  customerId: string;
+  projectType: ProjectType;
+  status?: JobStatus;
+  scheduledStart?: string;
+  scheduledEnd?: string;
+  assignedSubId?: string;
+  notes?: string;
+};
 
 export const JobsRepo = {
   async list(filter?: {
@@ -66,19 +104,25 @@ export const JobsRepo = {
     return fromRecord(rec);
   },
 
-  async create(input: Omit<Job, "id">): Promise<Job> {
-    const rec = await airtable.create<JobAirtableFields>(
-      tables.jobs,
-      toFields(input) as Partial<JobAirtableFields>,
-    );
+  async create(input: CreateJobInput): Promise<Job> {
+    const rec = await airtable.create<JobAirtableFields>(tables.jobs, toFields({
+      jobNumber: input.jobNumber,
+      customerId: input.customerId,
+      projectType: input.projectType,
+      status: input.status,
+      scheduledStart: input.scheduledStart,
+      scheduledEnd: input.scheduledEnd,
+      assignedSubId: input.assignedSubId,
+      notes: input.notes,
+    }));
     return fromRecord(rec);
   },
 
-  async update(id: string, patch: Partial<Omit<Job, "id">>): Promise<Job> {
+  async update(id: string, patch: JobPatch): Promise<Job> {
     const rec = await airtable.update<JobAirtableFields>(
       tables.jobs,
       id,
-      toFields(patch) as Partial<JobAirtableFields>,
+      toFields(patch),
     );
     return fromRecord(rec);
   },

@@ -16,13 +16,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "HTP Production Manager",
+  title: "Hometown Painting — Production Manager",
   description: "Schedule and manage painting jobs and subcontractors.",
-  applicationName: "HTP Production Manager",
+  applicationName: "Hometown Painting Production",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "HTP",
+    title: "Hometown",
   },
   formatDetection: { telephone: false },
   icons: {
@@ -35,7 +35,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0a0a0a",
+  themeColor: "#0e3f86",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,

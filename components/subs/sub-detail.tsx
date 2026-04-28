@@ -25,17 +25,15 @@ export function SubDetail({ id }: { id: string }) {
           {data?.name ?? (isLoading ? "Loading…" : "Subcontractor")}
         </h1>
       </div>
-      <div className="p-4">
-        {isLoading && (
-          <div className="text-sm text-muted-foreground">Loading…</div>
-        )}
-        {error && (
-          <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
-            {error instanceof Error ? error.message : "Failed to load sub"}
-          </div>
-        )}
-        {data && <SubForm mode="edit" initial={data} />}
-      </div>
+      {isLoading && (
+        <div className="p-4 text-sm text-muted-foreground">Loading…</div>
+      )}
+      {error && (
+        <div className="m-4 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+          {error instanceof Error ? error.message : "Failed to load sub"}
+        </div>
+      )}
+      {data && <SubForm mode="edit" initial={data} />}
     </div>
   );
 }

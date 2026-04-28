@@ -1,47 +1,75 @@
 /**
- * Maps logical entities (Job, Subcontractor) to actual Airtable table + field names.
+ * Maps logical entities (Job, Subcontractor, Contact) to actual Airtable table + field
+ * names in the "Hometown Operations" base.
  *
- * This file is the single source of truth for "what is the Airtable schema?". After
- * running the schema introspection (GET /api/airtable/schema) and saving the result
- * to docs/airtable-schema.json, fill in the table/field names below to wire up the
- * Jobs and Subs repos.
- *
- * Why this layer exists: it lets the rest of the app refer to fields by stable logical
- * names (e.g. "scheduledStart") even if the Airtable column is named "Start Date" or
- * later renamed. It also keeps the eventual migration off Airtable contained.
+ * The rest of the app refers to fields by stable logical names (e.g. "scheduledStart")
+ * regardless of what the Airtable column is actually called. This is the only place
+ * Airtable names live.
  */
 
 export const tables = {
-  jobs: "Jobs",                  // TODO: confirm against schema dump
-  subs: "Subcontractors",        // TODO: confirm against schema dump
+  jobs: "Projects",
+  subs: "Crews",
+  contacts: "Contacts",
 } as const;
 
+/**
+ * Job (= Airtable "Projects" record).
+ *
+ * Notes:
+ *  - `name` is a formula on Airtable (Job Number-Customer Project Type). It cannot be
+ *    written. To create a Project we set jobNumber + customer + projectType and the
+ *    name auto-computes.
+ *  - `customerName` and `address` are lookups from the linked Customer record. Read-only.
+ *  - `customer` is a linked record to Contacts. Stored/written as an array of record IDs.
+ *  - `scheduledStart` / `scheduledEnd` are date-only fields (YYYY-MM-DD).
+ */
 export const jobFields = {
-  // Required for v1 schedule view.
-  name: "Name",                  // TODO: confirm
-  client: "Client",              // TODO: confirm
-  address: "Address",            // TODO: confirm
-  status: "Status",              // TODO: confirm (single-select)
-  scheduledStart: "Scheduled Start", // TODO: confirm (date or dateTime)
-  scheduledEnd: "Scheduled End",     // TODO: confirm
-  assignedSub: "Assigned Sub",       // TODO: confirm (linked record -> Subcontractors)
-  notes: "Notes",                    // TODO: confirm
-
-  // Reserved for Phase 6 (job costing) — leave commented until schema confirms.
-  // contractAmount: "Contract Amount",
-  // laborCost: "Labor Cost",
-  // materialCost: "Material Cost",
+  name: "Job Name",                              // formula (read-only)
+  jobNumber: "Job Number",                       // singleLineText (writable)
+  customer: "Customer",                          // linked record -> Contacts
+  customerName: "Name (from Customer)",          // lookup (read-only)
+  address: "Street Address  (from Customer)",    // lookup (read-only) — note: two spaces in name
+  status: "Status",                              // singleSelect: Proposal Accepted | Scheduled | In Progress | Completed
+  projectType: "Project Type",                   // singleSelect
+  scheduledStart: "Job Start Date",              // date (no time)
+  scheduledEnd: "Job Complete Date",             // date (no time)
+  assignedSub: "Crew Leader",                    // linked record -> Crews
+  notes: "Notes",                                // multilineText
 } as const;
 
+/**
+ * Subcontractor (= Airtable "Crews" record).
+ *
+ *  - `name` = Company Name (singleLineText, primary, writable)
+ *  - `status` is the full singleSelect, exposed directly (Active / Onboarding / Inactive /
+ *    Prospect / Do Not Use!) — no boolean abstraction.
+ */
 export const subFields = {
-  name: "Name",                  // TODO: confirm
-  contactName: "Contact",        // TODO: confirm
-  phone: "Phone",                // TODO: confirm
-  email: "Email",                // TODO: confirm
-  trade: "Trade",                // TODO: confirm (or array)
-  active: "Active",              // TODO: confirm (checkbox)
-  notes: "Notes",                // TODO: confirm
+  name: "Company Name",
+  contactName: "Contact Name",
+  phone: "Phone",
+  email: "Email",
+  status: "Status",
+  notes: "Notes",
+} as const;
+
+/**
+ * Contact (= Airtable "Contacts" record). Read-only from the app's perspective except
+ * for create — we don't edit existing contacts here.
+ */
+export const contactFields = {
+  name: "Name",                  // formula: First & " " & Last (read-only)
+  firstName: "First Name",
+  lastName: "Last Name",
+  email: "Email",
+  phone: "Phone Number",
+  street: "Street Address ",     // note: trailing space
+  city: "City",
+  state: "State",
+  zip: "Zip Code",
 } as const;
 
 export type JobFieldKey = keyof typeof jobFields;
 export type SubFieldKey = keyof typeof subFields;
+export type ContactFieldKey = keyof typeof contactFields;
