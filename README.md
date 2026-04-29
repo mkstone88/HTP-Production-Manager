@@ -131,7 +131,7 @@ components/
   jobs/{jobs-list,job-form,job-detail,customer-picker}.tsx
   subs/{subs-list,sub-form,sub-detail}.tsx
   ui/                          # button, input, label, card (shadcn-style)
-middleware.ts                  # auth gate
+proxy.ts                       # auth gate (Next 16 convention)
 ```
 
 ## Roadmap

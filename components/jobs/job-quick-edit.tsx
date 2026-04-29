@@ -26,7 +26,20 @@ async function fetchSubs(): Promise<Sub[]> {
   return data.subs;
 }
 
-async function patchJob(id: string, patch: Partial<Job>): Promise<Job> {
+/**
+ * Patch payload accepts `null` for clearable fields (linked records, dates, status)
+ * so we can send "unassign" / "no date" instead of leaving the value untouched.
+ * The API route validates with zod; this just keeps the client honest.
+ */
+type JobPatchPayload = Partial<{
+  status: string | null;
+  assignedSubId: string | null;
+  notes: string | null;
+  scheduledStart: string | null;
+  scheduledEnd: string | null;
+}>;
+
+async function patchJob(id: string, patch: JobPatchPayload): Promise<Job> {
   const res = await fetch(`/api/jobs/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
@@ -85,7 +98,7 @@ export function JobQuickEdit({ jobId, onClose }: Props) {
   }, [open]);
 
   const save = useMutation({
-    mutationFn: ({ id, patch }: { id: string; patch: Partial<Job> }) =>
+    mutationFn: ({ id, patch }: { id: string; patch: JobPatchPayload }) =>
       patchJob(id, patch),
     onSuccess: (_data, vars) => {
       const keys = Object.keys(vars.patch);
