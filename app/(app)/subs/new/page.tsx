@@ -8,9 +8,7 @@ export default function NewSubPage() {
       <div className="border-b px-4 py-3">
         <h1 className="text-lg font-semibold">New subcontractor</h1>
       </div>
-      <div className="p-4">
-        <SubForm mode="create" />
-      </div>
+      <SubForm mode="create" />
     </div>
   );
 }

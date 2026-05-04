@@ -4,6 +4,14 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
+  /* Hometown Painting brand ----------------------------------------------- */
+  --htp-blue: #0e3f86;
+  --htp-blue-dark: #0a3168;
+  --htp-blue-soft: #eaf0f9;
+  --htp-red: #e11d2a;
+  --htp-red-dark: #b81621;
+  --htp-red-soft: #fce8ea;
+
   --radius: 0.625rem;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
@@ -11,27 +19,27 @@
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
+  --primary: var(--htp-blue);
+  --primary-foreground: #ffffff;
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);
   --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0 0);
+  --accent: var(--htp-blue-soft);
+  --accent-foreground: var(--htp-blue-dark);
+  --destructive: var(--htp-red);
+  --destructive-foreground: #ffffff;
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --ring: var(--htp-blue);
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-primary: var(--htp-blue);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: var(--htp-blue-soft);
+  --sidebar-accent-foreground: var(--htp-blue-dark);
   --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar-ring: var(--htp-blue);
 }
 
 .dark {
@@ -41,27 +49,27 @@
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
+  --primary: #4d7fc7;
+  --primary-foreground: #0a1a36;
   --secondary: oklch(0.269 0 0);
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0 0);
   --muted-foreground: oklch(0.708 0 0);
   --accent: oklch(0.269 0 0);
   --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.985 0 0);
+  --destructive: #f04250;
+  --destructive-foreground: #ffffff;
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
+  --ring: #4d7fc7;
   --sidebar: oklch(0.205 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-primary: #4d7fc7;
+  --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-accent-foreground: #ffffff;
   --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --sidebar-ring: #4d7fc7;
 }
 
 @theme inline {
@@ -107,8 +115,79 @@
   body {
     @apply bg-background text-foreground;
     -webkit-tap-highlight-color: transparent;
+    overscroll-behavior-y: contain;
   }
   html {
     -webkit-text-size-adjust: 100%;
   }
+  /* iOS form inputs default to 11px and trigger zoom-on-focus when font-size < 16px.
+     Bumping our text inputs to 16px keeps the viewport from auto-zooming. */
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+  @media (min-width: 640px) {
+    input,
+    select,
+    textarea {
+      font-size: 0.875rem;
+    }
+  }
+}
+
+/* FullCalendar tweaks --------------------------------------------------------
+   - .job-event:           default styling, smooth shadow on press / drag.
+   - .job-event-completed: muted/striped fill so completed jobs read as "done"
+                           but stay visible until the user toggles them off. */
+.fc .fc-event {
+  border-radius: 6px;
+  padding: 2px 4px;
+  font-weight: 500;
+  cursor: grab;
+  transition: transform 120ms ease, box-shadow 120ms ease, opacity 120ms ease;
+}
+.fc .fc-event:active {
+  cursor: grabbing;
+}
+.fc .fc-event.fc-event-dragging,
+.fc .fc-event.fc-event-resizing {
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
+  transform: scale(1.02);
+  opacity: 0.95;
+}
+.fc .job-event-completed {
+  opacity: 0.55;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgba(0, 0, 0, 0.04) 0,
+    rgba(0, 0, 0, 0.04) 4px,
+    transparent 4px,
+    transparent 8px
+  );
+}
+.fc .job-event-completed .fc-event-title {
+  text-decoration: line-through;
+  text-decoration-color: rgba(0, 0, 0, 0.3);
+}
+/* Bigger toolbar buttons on mobile so they're easy to tap. */
+@media (max-width: 640px) {
+  .fc .fc-button {
+    padding: 0.5rem 0.6rem;
+    font-size: 0.85rem;
+  }
+  .fc .fc-toolbar-title {
+    font-size: 1.05rem;
+  }
+}
+/* Week view: taller day cells + always-visible events so multi-crew days are
+   fully readable. Events stack rather than getting "+N more" rolled up. */
+.fc .fc-dayGridWeek-view .fc-daygrid-day-frame {
+  min-height: 26rem;
+}
+.fc .fc-dayGridWeek-view .fc-daygrid-day-events {
+  min-height: 22rem;
+}
+.fc .fc-dayGridWeek-view .fc-event {
+  white-space: normal;
 }

@@ -2,13 +2,16 @@ import "server-only";
 
 import { airtable, type AirtableRecord } from "./client";
 import { subFields, tables } from "./mapping";
-import type { Sub } from "./types";
+import type { Sub, SubStatus } from "./types";
 
-type SubAirtableFields = {
-  [K in keyof typeof subFields]?: unknown;
-};
+type SubAirtableFields = Record<string, unknown>;
 
-function fromRecord(rec: AirtableRecord<Record<string, unknown>>): Sub {
+function optString(v: unknown): string | undefined {
+  if (v === undefined || v === null || v === "") return undefined;
+  return String(v);
+}
+
+function fromRecord(rec: AirtableRecord<SubAirtableFields>): Sub {
   const f = rec.fields;
   return {
     id: rec.id,
@@ -16,34 +19,48 @@ function fromRecord(rec: AirtableRecord<Record<string, unknown>>): Sub {
     contactName: optString(f[subFields.contactName]),
     phone: optString(f[subFields.phone]),
     email: optString(f[subFields.email]),
-    trade: optString(f[subFields.trade]),
-    active: f[subFields.active] === undefined ? undefined : Boolean(f[subFields.active]),
+    status: optString(f[subFields.status]) as SubStatus | undefined,
     notes: optString(f[subFields.notes]),
   };
 }
 
-function optString(v: unknown): string | undefined {
-  if (v === undefined || v === null || v === "") return undefined;
-  return String(v);
-}
+type SubPatch = Partial<{
+  name: string;
+  contactName: string | null;
+  phone: string | null;
+  email: string | null;
+  status: SubStatus | null;
+  notes: string | null;
+}>;
 
-function toFields(patch: Partial<Sub>): Record<string, unknown> {
+function toFields(patch: SubPatch): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   if (patch.name !== undefined) out[subFields.name] = patch.name;
-  if (patch.contactName !== undefined) out[subFields.contactName] = patch.contactName;
-  if (patch.phone !== undefined) out[subFields.phone] = patch.phone;
-  if (patch.email !== undefined) out[subFields.email] = patch.email;
-  if (patch.trade !== undefined) out[subFields.trade] = patch.trade;
-  if (patch.active !== undefined) out[subFields.active] = patch.active;
-  if (patch.notes !== undefined) out[subFields.notes] = patch.notes;
+  if (patch.contactName !== undefined)
+    out[subFields.contactName] = patch.contactName ?? "";
+  if (patch.phone !== undefined) out[subFields.phone] = patch.phone ?? "";
+  if (patch.email !== undefined) out[subFields.email] = patch.email ?? "";
+  if (patch.status !== undefined) out[subFields.status] = patch.status ?? null;
+  if (patch.notes !== undefined) out[subFields.notes] = patch.notes ?? "";
   return out;
 }
+
+export type CreateSubInput = {
+  name: string;
+  contactName?: string;
+  phone?: string;
+  email?: string;
+  status?: SubStatus;
+  notes?: string;
+};
 
 export const SubsRepo = {
   async list(filter?: { activeOnly?: boolean }): Promise<Sub[]> {
     const records = await airtable.listAll<SubAirtableFields>(tables.subs);
     let subs = records.map(fromRecord);
-    if (filter?.activeOnly) subs = subs.filter((s) => s.active !== false);
+    if (filter?.activeOnly) {
+      subs = subs.filter((s) => s.status === "Active");
+    }
     return subs.sort((a, b) => a.name.localeCompare(b.name));
   },
 
@@ -52,19 +69,16 @@ export const SubsRepo = {
     return fromRecord(rec);
   },
 
-  async create(input: Omit<Sub, "id">): Promise<Sub> {
-    const rec = await airtable.create<SubAirtableFields>(
-      tables.subs,
-      toFields(input) as Partial<SubAirtableFields>,
-    );
+  async create(input: CreateSubInput): Promise<Sub> {
+    const rec = await airtable.create<SubAirtableFields>(tables.subs, toFields(input));
     return fromRecord(rec);
   },
 
-  async update(id: string, patch: Partial<Omit<Sub, "id">>): Promise<Sub> {
+  async update(id: string, patch: SubPatch): Promise<Sub> {
     const rec = await airtable.update<SubAirtableFields>(
       tables.subs,
       id,
-      toFields(patch) as Partial<SubAirtableFields>,
+      toFields(patch),
     );
     return fromRecord(rec);
   },

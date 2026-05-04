@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Calendar, ClipboardList, LogOut, Users } from "lucide-react";
@@ -26,10 +27,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-dvh flex-col md:flex-row">
       {/* Desktop / tablet sidebar */}
-      <aside className="hidden md:flex md:w-56 md:shrink-0 md:flex-col md:border-r md:bg-sidebar md:text-sidebar-foreground">
-        <div className="px-5 py-4 text-lg font-semibold tracking-tight">
-          HTP
-          <span className="ml-1 text-muted-foreground">Production</span>
+      <aside className="hidden md:flex md:w-60 md:shrink-0 md:flex-col md:border-r md:bg-sidebar md:text-sidebar-foreground">
+        <div className="flex items-center px-4 py-5">
+          <Image
+            src="/branding/logo.jpg"
+            alt="Hometown Painting"
+            width={1920}
+            height={739}
+            priority
+            className="h-9 w-auto"
+          />
+        </div>
+        <div className="px-5 pb-3 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+          Production Manager
         </div>
         <nav className="flex flex-1 flex-col gap-1 px-2">
           {NAV.map((item) => {
@@ -40,7 +50,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium",
+                  "flex h-11 items-center gap-3 rounded-md px-3 text-sm font-medium transition-colors",
                   active
                     ? "bg-sidebar-accent text-sidebar-accent-foreground"
                     : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
@@ -53,7 +63,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           })}
         </nav>
         <div className="px-2 pb-4">
-          <Button variant="ghost" size="sm" className="w-full justify-start" onClick={logout}>
+          <Button variant="ghost" size="sm" className="w-full justify-start gap-2" onClick={logout}>
             <LogOut className="size-4" />
             Log out
           </Button>
@@ -61,8 +71,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* Mobile top bar */}
-      <header className="flex items-center justify-between border-b px-4 py-3 md:hidden">
-        <span className="text-base font-semibold tracking-tight">HTP Production</span>
+      <header className="flex items-center justify-between border-b bg-background px-4 py-3 md:hidden">
+        <Link href="/schedule" className="flex items-center">
+          <Image
+            src="/branding/logo.jpg"
+            alt="Hometown Painting"
+            width={1920}
+            height={739}
+            priority
+            className="h-7 w-auto"
+          />
+        </Link>
         <Button variant="ghost" size="sm" onClick={logout} aria-label="Log out">
           <LogOut className="size-4" />
         </Button>
@@ -84,10 +103,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex flex-col items-center justify-center gap-1 py-2 text-xs",
-                active ? "text-foreground" : "text-muted-foreground",
+                "relative flex flex-col items-center justify-center gap-1 py-2 text-xs transition-colors",
+                active
+                  ? "text-[var(--htp-blue)] dark:text-[var(--primary)]"
+                  : "text-muted-foreground",
               )}
             >
+              {active && (
+                <span
+                  aria-hidden
+                  className="absolute inset-x-6 top-0 h-0.5 rounded-full bg-[var(--htp-blue)] dark:bg-[var(--primary)]"
+                />
+              )}
               <Icon className="size-5" />
               {item.label}
             </Link>

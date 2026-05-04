@@ -7,7 +7,9 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { Sub } from "@/lib/airtable/types";
+import { SubStatus, type Sub } from "@/lib/airtable/types";
+
+const statuses = SubStatus.options;
 
 type Props =
   | { mode: "create"; initial?: undefined }
@@ -21,14 +23,15 @@ export function SubForm(props: Props) {
   const [contactName, setContactName] = useState(props.initial?.contactName ?? "");
   const [phone, setPhone] = useState(props.initial?.phone ?? "");
   const [email, setEmail] = useState(props.initial?.email ?? "");
-  const [trade, setTrade] = useState(props.initial?.trade ?? "");
-  const [active, setActive] = useState(props.initial?.active ?? true);
+  const [status, setStatus] = useState<typeof statuses[number]>(
+    props.initial?.status ?? "Onboarding",
+  );
   const [notes, setNotes] = useState(props.initial?.notes ?? "");
   const [error, setError] = useState<string | null>(null);
 
   const save = useMutation({
     mutationFn: async (): Promise<Sub> => {
-      const body = { name, contactName, phone, email, trade, active, notes };
+      const body = { name, contactName, phone, email, status, notes };
       const url = props.mode === "edit" ? `/api/subs/${props.initial.id}` : "/api/subs";
       const method = props.mode === "edit" ? "PATCH" : "POST";
       const res = await fetch(url, {
@@ -52,35 +55,69 @@ export function SubForm(props: Props) {
 
   return (
     <form
-      className="grid max-w-xl gap-4"
+      className="grid max-w-xl gap-5 p-4 sm:p-6"
       onSubmit={(e) => {
         e.preventDefault();
         save.mutate();
       }}
     >
-      <div className="grid gap-2">
-        <Label htmlFor="name">Name</Label>
-        <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required />
+      <div className="grid gap-1.5">
+        <Label htmlFor="name">Company name</Label>
+        <Input
+          id="name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          className="h-11"
+          required
+        />
       </div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="grid gap-2">
-          <Label htmlFor="contact">Contact</Label>
-          <Input id="contact" value={contactName} onChange={(e) => setContactName(e.target.value)} />
+        <div className="grid gap-1.5">
+          <Label htmlFor="contact">Contact name</Label>
+          <Input
+            id="contact"
+            value={contactName}
+            onChange={(e) => setContactName(e.target.value)}
+            className="h-11"
+          />
         </div>
-        <div className="grid gap-2">
-          <Label htmlFor="trade">Trade</Label>
-          <Input id="trade" value={trade} onChange={(e) => setTrade(e.target.value)} />
+        <div className="grid gap-1.5">
+          <Label htmlFor="status">Status</Label>
+          <select
+            id="status"
+            value={status}
+            onChange={(e) => setStatus(e.target.value as typeof statuses[number])}
+            className="h-11 rounded-md border border-input bg-background px-3 text-sm"
+          >
+            {statuses.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
         </div>
-        <div className="grid gap-2">
+        <div className="grid gap-1.5">
           <Label htmlFor="phone">Phone</Label>
-          <Input id="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
+          <Input
+            id="phone"
+            type="tel"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            className="h-11"
+          />
         </div>
-        <div className="grid gap-2">
+        <div className="grid gap-1.5">
           <Label htmlFor="email">Email</Label>
-          <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          <Input
+            id="email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="h-11"
+          />
         </div>
       </div>
-      <div className="grid gap-2">
+      <div className="grid gap-1.5">
         <Label htmlFor="notes">Notes</Label>
         <textarea
           id="notes"
@@ -90,23 +127,27 @@ export function SubForm(props: Props) {
           className="rounded-md border border-input bg-background px-3 py-2 text-sm"
         />
       </div>
-      <label className="flex items-center gap-2 text-sm">
-        <input
-          type="checkbox"
-          checked={active}
-          onChange={(e) => setActive(e.target.checked)}
-          className="size-4"
-        />
-        Active
-      </label>
 
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && (
+        <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+          {error}
+        </div>
+      )}
 
-      <div className="flex gap-2">
-        <Button type="submit" disabled={save.isPending || !name}>
+      <div className="sticky bottom-0 -mx-4 flex gap-2 border-t bg-background/95 p-4 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0">
+        <Button
+          type="submit"
+          disabled={save.isPending || !name}
+          className="h-12 flex-1 sm:h-11 sm:flex-none"
+        >
           {save.isPending ? "Saving…" : props.mode === "edit" ? "Save changes" : "Create"}
         </Button>
-        <Button type="button" variant="ghost" onClick={() => router.back()}>
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={() => router.back()}
+          className="h-12 sm:h-11"
+        >
           Cancel
         </Button>
       </div>

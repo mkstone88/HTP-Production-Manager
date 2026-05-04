@@ -1,10 +1,11 @@
 "use client";
 
+import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -40,31 +41,53 @@ export function LoginForm() {
   }
 
   return (
-    <Card className="w-full max-w-sm">
-      <CardHeader>
-        <CardTitle>HTP Production Manager</CardTitle>
-        <CardDescription>Enter the team passcode to continue.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={onSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="passcode">Passcode</Label>
-            <Input
-              id="passcode"
-              type="password"
-              autoComplete="current-password"
-              autoFocus
-              value={passcode}
-              onChange={(e) => setPasscode(e.target.value)}
-              disabled={submitting}
-            />
+    <div className="flex w-full max-w-sm flex-col items-center gap-6">
+      <Image
+        src="/branding/logo.jpg"
+        alt="Hometown Painting"
+        width={1920}
+        height={739}
+        priority
+        className="h-14 w-auto"
+      />
+      <Card className="w-full">
+        <CardContent className="pt-6">
+          <div className="mb-4 text-center">
+            <h1 className="text-base font-semibold tracking-tight">
+              Production Manager
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Enter the team passcode to continue.
+            </p>
           </div>
-          {error && <p className="text-sm text-destructive">{error}</p>}
-          <Button type="submit" className="w-full" disabled={submitting || !passcode}>
-            {submitting ? "Signing in…" : "Sign in"}
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+          <form onSubmit={onSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="passcode">Passcode</Label>
+              <Input
+                id="passcode"
+                type="password"
+                autoComplete="current-password"
+                autoFocus
+                value={passcode}
+                onChange={(e) => setPasscode(e.target.value)}
+                disabled={submitting}
+                className="h-11"
+              />
+            </div>
+            {error && <p className="text-sm text-destructive">{error}</p>}
+            <Button
+              type="submit"
+              className="h-11 w-full"
+              disabled={submitting || !passcode}
+            >
+              {submitting ? "Signing in…" : "Sign in"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+      <p className="text-center text-xs text-muted-foreground">
+        Your home deserves a painter you can trust.
+      </p>
+    </div>
   );
 }

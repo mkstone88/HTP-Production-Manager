@@ -1,7 +1,7 @@
 # HTP Production Manager
 
 Mobile-first PWA for scheduling painting jobs and managing subcontractors,
-backed by Airtable as the system of record.
+backed by the existing **Hometown Operations** Airtable base.
 
 ## Stack
 
@@ -9,6 +9,27 @@ backed by Airtable as the system of record.
 - Tailwind v4 · shadcn/ui-style components
 - TanStack Query · FullCalendar (drag & drop)
 - Airtable REST API via a small server-side client
+
+## Airtable schema this app expects
+
+The app maps logical names → Airtable columns in [lib/airtable/mapping.ts](lib/airtable/mapping.ts).
+The Hometown Operations base is the source of truth — adjust the mapping if
+columns are renamed.
+
+| Logical entity | Airtable table |
+|----------------|----------------|
+| Job            | `Projects`     |
+| Subcontractor  | `Crews`        |
+| Contact        | `Contacts`     |
+
+Notes:
+
+- `Job Name` is a formula (`{Job Number}-{Customer} {Project Type}`). The app
+  cannot write to it; it is computed when you set the inputs.
+- `Street Address (from Customer)` and `Name (from Customer)` are lookups —
+  read-only on the Project. Edit the Contact directly to change them.
+- `Crews.Status` is a 5-state singleSelect (Active / Onboarding / Inactive /
+  Prospect / Do Not Use!), exposed as a dropdown in the sub form.
 
 ## Getting started
 
@@ -20,59 +41,57 @@ npm install
 
 ### 2. Create your Airtable Personal Access Token
 
-1. Go to <https://airtable.com/create/tokens>
-2. Click **Create new token**, give it any name (e.g. `HTP Production Manager`)
-3. **Scopes** — add all three:
+1. <https://airtable.com/create/tokens> → **Create new token**
+2. **Scopes:**
    - `data.records:read`
    - `data.records:write`
    - `schema.bases:read`
-4. **Access** — pick *only* the production-manager base. Don't grant access to other bases.
-5. Copy the token. You'll only see it once.
+3. **Access:** select only the **Hometown Operations** base.
 
-### 3. Find your Base ID
-
-Open your base in the browser. The URL looks like:
-
-```
-https://airtable.com/appXXXXXXXXXXXXXX/tblXXXXXXXXXXXXXX/...
-                    ^^^^^^^^^^^^^^^^^^
-                    this is your Base ID (starts with "app")
-```
-
-### 4. Configure environment
+### 3. Configure environment
 
 ```bash
 cp .env.example .env.local
 ```
 
-Then fill in `.env.local`:
+Fill in:
 
-- `AIRTABLE_PAT` — the token from step 2
-- `AIRTABLE_BASE_ID` — the ID from step 3
-- `ADMIN_PASSCODE` — a passcode the team types in to sign in (any string)
-- `AUTH_SECRET` — generate with:
+- `AIRTABLE_PAT` — token from step 2
+- `AIRTABLE_BASE_ID` — `appNPi0v8wFD4Peq0` (Hometown Operations)
+- `ADMIN_PASSCODE` — shared passcode for the team
+- `AUTH_SECRET` — random 32+ char string. Generate with:
   ```bash
   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
   ```
 
-### 5. Run
+### 4. Run
 
 ```bash
 npm run dev
 ```
 
-Visit <http://localhost:3000>. You'll be redirected to `/login`. Enter your `ADMIN_PASSCODE`.
+Visit <http://localhost:3000> → redirected to `/login`. Enter your passcode.
 
-## First-run: introspect your Airtable schema
+## Schedule view
 
-Once you're logged in, open <http://localhost:3000/api/airtable/schema> in your
-browser. You'll get a JSON dump of every table in the base, plus every field's
-name and type. Save it to `docs/airtable-schema.json` for reference.
+- Drag a card from the **Unscheduled** drawer onto a calendar day to schedule.
+- Drag an existing event to move it; resize the right edge to extend the end date.
+- All events are all-day (matches Airtable's date-only fields).
+- **Show completed** toggle: when on, completed jobs appear grayed out and
+  hatched. Turn it off to hide them entirely.
+- Filter by sub via the dropdown.
 
-Then update `lib/airtable/mapping.ts` so the `tables.*` and `*Fields.*`
-constants match your actual Airtable table and column names. The repos
-(`lib/airtable/jobs.ts`, `lib/airtable/subs.ts`) read everything through that
-mapping — no other file should hardcode field names.
+On mobile the unscheduled list is a bottom drawer — tap the handle to expand.
+
+## Creating a job
+
+`/jobs/new` — pick (or create) a customer, set Job Number + Project Type, and
+optional schedule/crew. The customer picker:
+
+- Searches existing Contacts by name/phone/email.
+- Has a **Create new contact** action when the customer isn't in Airtable yet.
+  The new contact is created on submit, then linked to the new Project in one
+  request.
 
 ## Project layout
 
@@ -80,13 +99,14 @@ mapping — no other file should hardcode field names.
 app/
   (app)/                       # everything inside requires auth
     layout.tsx                 # nav shell (sidebar on desktop, bottom nav on mobile)
-    schedule/                  # calendar + unscheduled sidebar
-    jobs/                      # job list (read-only for now)
+    schedule/                  # calendar + unscheduled drawer
+    jobs/                      # list + create + detail/edit
     subs/                      # subcontractor CRUD
   api/
     airtable/schema/           # GET — schema introspection
     auth/{login,logout}/       # passcode auth
-    jobs/                      # GET / POST
+    contacts/                  # GET (search) / POST (create)
+    jobs/                      # GET / POST (POST accepts customerId OR newContact)
     jobs/[id]/                 # GET / PATCH / DELETE
     subs/                      # GET / POST
     subs/[id]/                 # GET / PATCH / DELETE
@@ -96,9 +116,11 @@ lib/
   airtable/
     client.ts                  # fetch-based Airtable wrapper (server-only)
     mapping.ts                 # logical name -> Airtable table/field name
-    jobs.ts                    # JobsRepo
-    subs.ts                    # SubsRepo
-    types.ts                   # zod schemas
+    types.ts                   # zod schemas (status enums, etc.)
+    jobs.ts                    # JobsRepo (Projects table)
+    subs.ts                    # SubsRepo (Crews table)
+    contacts.ts                # ContactsRepo (read + create)
+    errors.ts                  # shared error → JSON response helper
   auth.ts                      # passcode + signed-cookie session
   env.ts                       # typed env access
   utils.ts                     # cn() helper
@@ -106,29 +128,30 @@ components/
   app-shell.tsx                # nav
   query-provider.tsx           # TanStack Query
   calendar/schedule-view.tsx   # FullCalendar + drag-drop logic
-  jobs/, subs/                 # list / form
+  jobs/{jobs-list,job-form,job-detail,customer-picker}.tsx
+  subs/{subs-list,sub-form,sub-detail}.tsx
   ui/                          # button, input, label, card (shadcn-style)
-middleware.ts                  # auth gate
+proxy.ts                       # auth gate (Next 16 convention)
 ```
 
 ## Roadmap
 
-**v1 (in progress)**
+**v1**
 
 - [x] Project scaffold, auth, PWA shell
 - [x] Airtable client + repository abstraction
 - [x] Schema introspection endpoint
-- [x] Schedule view with drag-and-drop
+- [x] Schedule view with drag-and-drop (all-day events)
 - [x] Subcontractor CRUD
-- [ ] **Confirm Airtable schema** and finalize `lib/airtable/mapping.ts`
-- [ ] Job detail / edit page
+- [x] Aligned mapping with Hometown Operations schema
+- [x] Job create flow with inline contact creation
+- [x] Job detail / edit page
 - [ ] Service worker (network-first for `/api`, SWR for shell)
 
-**v2 — Job costing** (separate plan)
+**v2 — Job costing**
 
-- Manual invoice entry + read auto-imported invoices
-- Labor cost entry per job
-- Gross profit calculation per job
+The Projects table already has Sub Payout, Material Charges, Gross Profit, GP %,
+etc. — surface these in the job detail view.
 
 **Later**
 
@@ -138,12 +161,11 @@ middleware.ts                  # auth gate
 
 ## Deploying
 
-Vercel is the easiest target:
+Vercel:
 
 1. Push the repo to GitHub.
 2. Import on Vercel.
-3. Set the four env vars (`AIRTABLE_PAT`, `AIRTABLE_BASE_ID`, `ADMIN_PASSCODE`, `AUTH_SECRET`) in the Vercel project settings.
+3. Set the four env vars (`AIRTABLE_PAT`, `AIRTABLE_BASE_ID`, `ADMIN_PASSCODE`, `AUTH_SECRET`).
 4. Deploy.
 
-The icons in `public/icons/` are placeholder solid-black squares. Replace with
-branded art before a real launch.
+Replace the placeholder icons in `public/icons/` with branded art before launch.
