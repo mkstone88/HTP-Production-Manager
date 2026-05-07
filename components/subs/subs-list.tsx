@@ -6,6 +6,7 @@ import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import type { Sub } from "@/lib/airtable/types";
+import { subColor } from "@/lib/sub-color";
 import { cn } from "@/lib/utils";
 
 async function fetchSubs(): Promise<Sub[]> {
@@ -54,6 +55,16 @@ export function SubsList() {
               href={`/subs/${s.id}`}
               className="flex min-h-14 items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/40 active:bg-muted"
             >
+              <span
+                aria-hidden
+                className="size-3 shrink-0 rounded-full"
+                style={{
+                  backgroundColor: subColor({
+                    subId: s.id,
+                    override: s.color,
+                  }),
+                }}
+              />
               <div className="min-w-0 flex-1">
                 <div className="truncate font-medium">{s.name}</div>
                 <div className="truncate text-sm text-muted-foreground">

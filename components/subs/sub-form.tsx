@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SubStatus, type Sub } from "@/lib/airtable/types";
+import { SUB_COLOR_PALETTE } from "@/lib/sub-color";
+import { cn } from "@/lib/utils";
 
 const statuses = SubStatus.options;
 
@@ -26,12 +28,21 @@ export function SubForm(props: Props) {
   const [status, setStatus] = useState<typeof statuses[number]>(
     props.initial?.status ?? "Onboarding",
   );
+  const [color, setColor] = useState<string>(props.initial?.color ?? "");
   const [notes, setNotes] = useState(props.initial?.notes ?? "");
   const [error, setError] = useState<string | null>(null);
 
   const save = useMutation({
     mutationFn: async (): Promise<Sub> => {
-      const body = { name, contactName, phone, email, status, notes };
+      const body = {
+        name,
+        contactName,
+        phone,
+        email,
+        status,
+        color: color || (props.mode === "edit" ? null : undefined),
+        notes,
+      };
       const url = props.mode === "edit" ? `/api/subs/${props.initial.id}` : "/api/subs";
       const method = props.mode === "edit" ? "PATCH" : "POST";
       const res = await fetch(url, {
@@ -117,6 +128,47 @@ export function SubForm(props: Props) {
           />
         </div>
       </div>
+      <div className="grid gap-1.5">
+        <Label>Calendar color</Label>
+        <div className="flex flex-wrap items-center gap-2">
+          {SUB_COLOR_PALETTE.map((c) => {
+            const selected = color.toLowerCase() === c.toLowerCase();
+            return (
+              <button
+                key={c}
+                type="button"
+                aria-label={`Use color ${c}`}
+                aria-pressed={selected}
+                onClick={() => setColor(c)}
+                className={cn(
+                  "size-8 rounded-full border-2 transition-transform",
+                  selected
+                    ? "border-foreground scale-110"
+                    : "border-transparent hover:scale-105",
+                )}
+                style={{ backgroundColor: c }}
+              />
+            );
+          })}
+          <button
+            type="button"
+            onClick={() => setColor("")}
+            className={cn(
+              "ml-1 h-8 rounded-md border px-3 text-xs",
+              color === ""
+                ? "border-foreground bg-muted"
+                : "border-input text-muted-foreground hover:bg-muted/40",
+            )}
+          >
+            Auto
+          </button>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Used to tint this sub&rsquo;s jobs on the schedule. &ldquo;Auto&rdquo;
+          picks a stable color from their record ID.
+        </p>
+      </div>
+
       <div className="grid gap-1.5">
         <Label htmlFor="notes">Notes</Label>
         <textarea
