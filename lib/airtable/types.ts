@@ -41,8 +41,30 @@ export const Job = z.object({
   scheduledEnd: z.string().optional(),      // YYYY-MM-DD
   assignedSubId: z.string().optional(),
   notes: z.string().optional(),
+  // Pre-job staging flags
+  emailSent: z.boolean().optional(),
+  customerReplied: z.boolean().optional(),
+  colorsReceived: z.boolean().optional(),
+  workOrderUrl: z.string().optional(),
+  workOrderReady: z.boolean().optional(),
 });
 export type Job = z.infer<typeof Job>;
+
+/**
+ * Steps in the order they happen during pre-job staging. Each one is either
+ * a checkbox the user can toggle, or a state derived from another field.
+ *
+ * Add new steps here AND extend `computeStaging()` in `lib/jobs/staging.ts`.
+ */
+export const StagingStep = z.enum([
+  "emailSent",
+  "customerReplied",
+  "colorsReceived",
+  "workOrderReady",
+  "crewAssigned",
+  "scheduled",
+]);
+export type StagingStep = z.infer<typeof StagingStep>;
 
 export const SubStatus = z.enum([
   "Active",
