@@ -6,11 +6,12 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { JobQuickEdit } from "@/components/jobs/job-quick-edit";
+import { JobsTriage } from "@/components/jobs/jobs-triage";
 import { Button } from "@/components/ui/button";
 import type { Job, Sub } from "@/lib/airtable/types";
 import { cn } from "@/lib/utils";
 
-type Tab = "active" | "completed" | "all";
+type Tab = "triage" | "active" | "completed" | "all";
 
 async function fetchJobs(): Promise<Job[]> {
   const res = await fetch("/api/jobs", { cache: "no-store" });
@@ -28,7 +29,7 @@ async function fetchSubs(): Promise<Sub[]> {
 
 export function JobsList() {
   const qc = useQueryClient();
-  const [tab, setTab] = useState<Tab>("active");
+  const [tab, setTab] = useState<Tab>("triage");
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const jobs = useQuery({ queryKey: ["jobs"], queryFn: fetchJobs });
@@ -99,6 +100,7 @@ export function JobsList() {
   const counts = useMemo(() => {
     const all = jobs.data ?? [];
     return {
+      triage: all.filter((j) => j.status === "Proposal Accepted").length,
       active: all.filter((j) => j.status !== "Completed").length,
       completed: all.filter((j) => j.status === "Completed").length,
       all: all.length,
@@ -123,6 +125,9 @@ export function JobsList() {
         aria-label="Job filter"
         className="flex gap-1 border-b px-2 py-2 sm:px-3"
       >
+        <TabButton active={tab === "triage"} onClick={() => setTab("triage")}>
+          Triage <Count n={counts.triage} />
+        </TabButton>
         <TabButton active={tab === "active"} onClick={() => setTab("active")}>
           Active <Count n={counts.active} />
         </TabButton>
@@ -137,15 +142,17 @@ export function JobsList() {
         </TabButton>
       </div>
 
-      {jobs.isLoading && (
+      {tab === "triage" && <JobsTriage />}
+
+      {tab !== "triage" && jobs.isLoading && (
         <div className="p-4 text-sm text-muted-foreground">Loading jobs…</div>
       )}
-      {jobs.error && (
+      {tab !== "triage" && jobs.error && (
         <div className="m-4 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
           {jobs.error instanceof Error ? jobs.error.message : "Failed to load jobs."}
         </div>
       )}
-      {!jobs.isLoading && !jobs.error && sortedJobs.length === 0 && (
+      {tab !== "triage" && !jobs.isLoading && !jobs.error && sortedJobs.length === 0 && (
         <div className="p-4 text-sm text-muted-foreground">
           {tab === "active"
             ? "No active jobs. 🎉"
@@ -155,6 +162,7 @@ export function JobsList() {
         </div>
       )}
 
+      {tab !== "triage" && (
       <ul className="divide-y">
         {sortedJobs.map((j) => {
           const completed = j.status === "Completed";
@@ -234,6 +242,7 @@ export function JobsList() {
           );
         })}
       </ul>
+      )}
 
       <JobQuickEdit jobId={editingId} onClose={() => setEditingId(null)} />
     </div>

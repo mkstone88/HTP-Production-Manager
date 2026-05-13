@@ -6,6 +6,7 @@ import FullCalendar from "@fullcalendar/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronUp, Plus } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { JobQuickEdit } from "@/components/jobs/job-quick-edit";
@@ -64,9 +65,16 @@ function toDateOnly(d: Date | null): string | undefined {
 
 export function ScheduleView() {
   const qc = useQueryClient();
+  const searchParams = useSearchParams();
+  // ?focus=<jobId> — set when the user lands here from the Triage tab's
+  // Schedule pill. Forces the unscheduled drawer open and highlights+scrolls
+  // to that card so they can drag it onto a date.
+  const focusJobId = searchParams.get("focus") ?? undefined;
+
   const [subFilter, setSubFilter] = useState<string>("");
   const [showCompleted, setShowCompleted] = useState(true);
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerOpenState, setDrawerOpenState] = useState(false);
+  const drawerOpen = drawerOpenState || Boolean(focusJobId);
   const [editingJobId, setEditingJobId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -123,6 +131,13 @@ export function ScheduleView() {
     });
     return () => draggable.destroy();
   }, []);
+
+  // Scroll the focused job into view once it's actually rendered.
+  useEffect(() => {
+    if (!focusJobId) return;
+    const el = document.querySelector(`[data-job-id="${focusJobId}"]`);
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [focusJobId, jobsQuery.data]);
 
   const events = useMemo(
     () =>
@@ -224,7 +239,7 @@ export function ScheduleView() {
           {/* Drawer handle (mobile only) */}
           <button
             type="button"
-            onClick={() => setDrawerOpen((v) => !v)}
+            onClick={() => setDrawerOpenState((v) => !v)}
             className={cn(
               "flex w-full items-center justify-between gap-2 px-4 py-3 text-sm font-semibold lg:hidden",
               "active:bg-muted/60 transition-colors",
@@ -275,6 +290,7 @@ export function ScheduleView() {
                 className={cn(
                   "min-h-12 cursor-grab touch-none select-none rounded-lg border bg-card p-3 text-sm shadow-sm",
                   "transition-all duration-150 active:scale-[0.98] active:cursor-grabbing active:shadow-md",
+                  focusJobId === j.id && "ring-2 ring-amber-500 ring-offset-2",
                 )}
               >
                 <div className="font-medium">{j.name || j.customerName || "Job"}</div>
@@ -384,7 +400,7 @@ export function ScheduleView() {
                   ...(subFilter ? { assignedSubId: subFilter } : {}),
                 },
               });
-              setDrawerOpen(false);
+              setDrawerOpenState(false);
             }}
             eventDrop={(info) => {
               const jobId = info.event.extendedProps.jobId as string | undefined;
