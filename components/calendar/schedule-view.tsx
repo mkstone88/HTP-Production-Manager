@@ -12,6 +12,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { JobQuickEdit } from "@/components/jobs/job-quick-edit";
 import { Button } from "@/components/ui/button";
 import type { Job, Sub } from "@/lib/airtable/types";
+import { subColor } from "@/lib/sub-color";
 import { cn } from "@/lib/utils";
 
 type JobsResponse = { jobs: Job[]; error?: string };
@@ -143,7 +144,13 @@ export function ScheduleView() {
     () =>
       visibleScheduled.map((j) => {
         const isCompleted = j.status === "Completed";
-        const color = subColor(j.assignedSubId, isCompleted);
+        const color = subColor({
+          subId: j.assignedSubId,
+          override: j.assignedSubId
+            ? subsById.get(j.assignedSubId)?.color
+            : undefined,
+          completed: isCompleted,
+        });
         return {
           id: j.id,
           title: j.name || j.customerName || "Job",
@@ -163,7 +170,7 @@ export function ScheduleView() {
           classNames: isCompleted ? ["job-event-completed"] : ["job-event"],
         };
       }),
-    [visibleScheduled],
+    [visibleScheduled, subsById],
   );
 
   const loading = jobsQuery.isLoading || subsQuery.isLoading;
@@ -444,16 +451,4 @@ export function ScheduleView() {
       />
     </div>
   );
-}
-
-function subColor(subId: string | undefined, completed: boolean): string {
-  if (completed) return "#d4d4d8"; // zinc-300, muted gray
-  if (!subId) return "#0e3f86"; // brand blue when unassigned
-  // Per-sub deterministic color so each crew gets a stable, distinguishable hue.
-  let h = 0;
-  for (let i = 0; i < subId.length; i++) {
-    h = (h * 31 + subId.charCodeAt(i)) >>> 0;
-  }
-  const hue = h % 360;
-  return `oklch(0.5 0.16 ${hue})`;
 }

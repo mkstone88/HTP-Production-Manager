@@ -20,6 +20,7 @@ function fromRecord(rec: AirtableRecord<SubAirtableFields>): Sub {
     phone: optString(f[subFields.phone]),
     email: optString(f[subFields.email]),
     status: optString(f[subFields.status]) as SubStatus | undefined,
+    color: optString(f[subFields.color]),
     notes: optString(f[subFields.notes]),
   };
 }
@@ -30,6 +31,7 @@ type SubPatch = Partial<{
   phone: string | null;
   email: string | null;
   status: SubStatus | null;
+  color: string | null;
   notes: string | null;
 }>;
 
@@ -41,6 +43,7 @@ function toFields(patch: SubPatch): Record<string, unknown> {
   if (patch.phone !== undefined) out[subFields.phone] = patch.phone ?? "";
   if (patch.email !== undefined) out[subFields.email] = patch.email ?? "";
   if (patch.status !== undefined) out[subFields.status] = patch.status ?? null;
+  if (patch.color !== undefined) out[subFields.color] = patch.color ?? "";
   if (patch.notes !== undefined) out[subFields.notes] = patch.notes ?? "";
   return out;
 }
@@ -51,6 +54,7 @@ export type CreateSubInput = {
   phone?: string;
   email?: string;
   status?: SubStatus;
+  color?: string;
   notes?: string;
 };
 

@@ -57,6 +57,7 @@ export const subFields = {
   phone: "Phone",
   email: "Email",
   status: "Status",
+  color: "Color",                // singleLineText, hex like #RRGGBB (optional)
   notes: "Notes",
 } as const;
 

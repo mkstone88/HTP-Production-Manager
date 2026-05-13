@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { errorResponse } from "@/lib/airtable/errors";
 import { SubsRepo } from "@/lib/airtable/subs";
-import { SubStatus } from "@/lib/airtable/types";
+import { HexColor, SubStatus } from "@/lib/airtable/types";
 
 export const dynamic = "force-dynamic";
 
@@ -37,6 +37,7 @@ const CreateBody = z.object({
   phone: z.string().optional(),
   email: z.string().optional(),
   status: SubStatus.optional(),
+  color: HexColor.optional(),
   notes: z.string().optional(),
 });
 

@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { errorResponse } from "@/lib/airtable/errors";
 import { SubsRepo } from "@/lib/airtable/subs";
-import { SubStatus } from "@/lib/airtable/types";
+import { HexColor, SubStatus } from "@/lib/airtable/types";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +25,7 @@ const PatchBody = z.object({
   phone: z.string().nullable().optional(),
   email: z.string().nullable().optional(),
   status: SubStatus.nullable().optional(),
+  color: HexColor.nullable().optional(),
   notes: z.string().nullable().optional(),
 });
 
