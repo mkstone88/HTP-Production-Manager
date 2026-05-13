@@ -36,6 +36,12 @@ export const jobFields = {
   scheduledEnd: "Job Complete Date",             // date (no time)
   assignedSub: "Crew Leader",                    // linked record -> Crews
   notes: "Notes",                                // multilineText
+  // Pre-job staging checkboxes (Triage tab):
+  emailSent: "Email Sent",                       // checkbox — project email sent to customer
+  customerReplied: "Customer Replied",           // checkbox — customer acknowledged the email
+  colorsReceived: "Colors Received",             // checkbox — customer provided colors
+  workOrderUrl: "Work Order URL",                // url — populated by Zapier when proposal accepted
+  workOrderReady: "Work Order Ready",            // checkbox — work order has been polished/edited
 } as const;
 
 /**

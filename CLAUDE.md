@@ -80,6 +80,22 @@ Field names live only in `lib/airtable/mapping.ts`.
   schema, use the Airtable MCP tools against base `appNPi0v8wFD4Peq0`
   ("Hometown Operations") — don't try to call the Airtable REST API
   directly from a script.
+- **Status auto-advance lives in Airtable, not the app.** An Airtable
+  automation flips `Status` from `Proposal Accepted` → `Scheduled` when
+  `Job Start Date` is set. Don't reimplement this in the app or you'll
+  double-fire. Same idea for any other status transitions: prefer Airtable
+  automations so they fire regardless of who set the field (app, Zapier,
+  direct edit).
+- **Project lifecycle.** New `Projects` records flow in automatically from
+  the estimating software via Zapier when a proposal is accepted. The
+  Zapier automation also populates `Work Order URL`. The app's job is the
+  *triage* between accepted and scheduled — see `app/api/jobs/triage/` and
+  `components/jobs/jobs-triage.tsx`. Pre-job staging fields:
+  `Email Sent`, `Customer Replied`, `Colors Received`, `Work Order Ready`
+  (all checkboxes), plus derived `crewAssigned` (from `Crew Leader`) and
+  `scheduled` (from `Job Start Date`). Add new staging steps in
+  `lib/jobs/staging.ts` AND update the `StagingStep` enum in
+  `lib/airtable/types.ts`.
 
 ## Verify before committing
 

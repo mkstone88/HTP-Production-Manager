@@ -34,6 +34,11 @@ function fromRecord(rec: AirtableRecord<JobAirtableFields>): Job {
     scheduledEnd: firstString(f[jobFields.scheduledEnd]),
     assignedSubId: firstLinkId(f[jobFields.assignedSub]),
     notes: firstString(f[jobFields.notes]),
+    emailSent: Boolean(f[jobFields.emailSent]),
+    customerReplied: Boolean(f[jobFields.customerReplied]),
+    colorsReceived: Boolean(f[jobFields.colorsReceived]),
+    workOrderUrl: firstString(f[jobFields.workOrderUrl]),
+    workOrderReady: Boolean(f[jobFields.workOrderReady]),
   };
 }
 
@@ -51,6 +56,10 @@ type JobPatch = Partial<{
   scheduledEnd: string | null;
   assignedSubId: string | null;
   notes: string | null;
+  emailSent: boolean;
+  customerReplied: boolean;
+  colorsReceived: boolean;
+  workOrderReady: boolean;
 }>;
 
 function toFields(patch: JobPatch): Record<string, unknown> {
@@ -71,6 +80,14 @@ function toFields(patch: JobPatch): Record<string, unknown> {
     out[jobFields.assignedSub] = patch.assignedSubId ? [patch.assignedSubId] : [];
   if (patch.notes !== undefined)
     out[jobFields.notes] = patch.notes ?? "";
+  if (patch.emailSent !== undefined)
+    out[jobFields.emailSent] = patch.emailSent;
+  if (patch.customerReplied !== undefined)
+    out[jobFields.customerReplied] = patch.customerReplied;
+  if (patch.colorsReceived !== undefined)
+    out[jobFields.colorsReceived] = patch.colorsReceived;
+  if (patch.workOrderReady !== undefined)
+    out[jobFields.workOrderReady] = patch.workOrderReady;
   return out;
 }
 
