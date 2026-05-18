@@ -6,11 +6,13 @@ import FullCalendar from "@fullcalendar/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronUp, Plus } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { JobQuickEdit } from "@/components/jobs/job-quick-edit";
 import { Button } from "@/components/ui/button";
 import type { Job, Sub } from "@/lib/airtable/types";
+import { subColor } from "@/lib/sub-color";
 import { cn } from "@/lib/utils";
 
 type JobsResponse = { jobs: Job[]; error?: string };
@@ -64,9 +66,16 @@ function toDateOnly(d: Date | null): string | undefined {
 
 export function ScheduleView() {
   const qc = useQueryClient();
+  const searchParams = useSearchParams();
+  // ?focus=<jobId> — set when the user lands here from the Triage tab's
+  // Schedule pill. Forces the unscheduled drawer open and highlights+scrolls
+  // to that card so they can drag it onto a date.
+  const focusJobId = searchParams.get("focus") ?? undefined;
+
   const [subFilter, setSubFilter] = useState<string>("");
   const [showCompleted, setShowCompleted] = useState(true);
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerOpenState, setDrawerOpenState] = useState(false);
+  const drawerOpen = drawerOpenState || Boolean(focusJobId);
   const [editingJobId, setEditingJobId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -124,11 +133,36 @@ export function ScheduleView() {
     return () => draggable.destroy();
   }, []);
 
+  // Scroll the focused job into view once it's actually rendered.
+  useEffect(() => {
+    if (!focusJobId) return;
+    const el = document.querySelector(`[data-job-id="${focusJobId}"]`);
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [focusJobId, jobsQuery.data]);
+
   const events = useMemo(
     () =>
       visibleScheduled.map((j) => {
         const isCompleted = j.status === "Completed";
-        const color = subColor(j.assignedSubId, isCompleted);
+        const isOnHold = j.status === "On Hold";
+        const color = subColor({
+          subId: j.assignedSubId,
+          override: j.assignedSubId
+            ? subsById.get(j.assignedSubId)?.color
+            : undefined,
+          completed: isCompleted,
+          onHold: isOnHold,
+        });
+        const textColor = isCompleted
+          ? "#71717a"
+          : isOnHold
+            ? "#475569"
+            : "#ffffff";
+        const classNames = isCompleted
+          ? ["job-event-completed"]
+          : isOnHold
+            ? ["job-event-onhold"]
+            : ["job-event"];
         return {
           id: j.id,
           title: j.name || j.customerName || "Job",
@@ -139,16 +173,17 @@ export function ScheduleView() {
             jobId: j.id,
             subId: j.assignedSubId,
             completed: isCompleted,
+            onHold: isOnHold,
             customerName: j.customerName,
             status: j.status,
           },
           backgroundColor: color,
-          borderColor: color,
-          textColor: isCompleted ? "#71717a" : "#ffffff",
-          classNames: isCompleted ? ["job-event-completed"] : ["job-event"],
+          borderColor: isOnHold ? "#94a3b8" : color,
+          textColor,
+          classNames,
         };
       }),
-    [visibleScheduled],
+    [visibleScheduled, subsById],
   );
 
   const loading = jobsQuery.isLoading || subsQuery.isLoading;
@@ -224,7 +259,7 @@ export function ScheduleView() {
           {/* Drawer handle (mobile only) */}
           <button
             type="button"
-            onClick={() => setDrawerOpen((v) => !v)}
+            onClick={() => setDrawerOpenState((v) => !v)}
             className={cn(
               "flex w-full items-center justify-between gap-2 px-4 py-3 text-sm font-semibold lg:hidden",
               "active:bg-muted/60 transition-colors",
@@ -275,6 +310,7 @@ export function ScheduleView() {
                 className={cn(
                   "min-h-12 cursor-grab touch-none select-none rounded-lg border bg-card p-3 text-sm shadow-sm",
                   "transition-all duration-150 active:scale-[0.98] active:cursor-grabbing active:shadow-md",
+                  focusJobId === j.id && "ring-2 ring-amber-500 ring-offset-2",
                 )}
               >
                 <div className="font-medium">{j.name || j.customerName || "Job"}</div>
@@ -361,11 +397,14 @@ export function ScheduleView() {
                     <span className="truncate">
                       {sub ? sub.name : "Unassigned"}
                     </span>
-                    {props.status && props.status !== "Scheduled" && (
+                    {/* Only badge unusual statuses; On Hold and Completed are
+                        already visually distinct via the card styling. */}
+                    {props.status === "Proposal Accepted" ||
+                    props.status === "In Progress" ? (
                       <span className="shrink-0 rounded-sm bg-white/20 px-1 py-px">
                         {props.status}
                       </span>
-                    )}
+                    ) : null}
                   </div>
                 </div>
               );
@@ -384,7 +423,7 @@ export function ScheduleView() {
                   ...(subFilter ? { assignedSubId: subFilter } : {}),
                 },
               });
-              setDrawerOpen(false);
+              setDrawerOpenState(false);
             }}
             eventDrop={(info) => {
               const jobId = info.event.extendedProps.jobId as string | undefined;
@@ -428,16 +467,4 @@ export function ScheduleView() {
       />
     </div>
   );
-}
-
-function subColor(subId: string | undefined, completed: boolean): string {
-  if (completed) return "#d4d4d8"; // zinc-300, muted gray
-  if (!subId) return "#0e3f86"; // brand blue when unassigned
-  // Per-sub deterministic color so each crew gets a stable, distinguishable hue.
-  let h = 0;
-  for (let i = 0; i < subId.length; i++) {
-    h = (h * 31 + subId.charCodeAt(i)) >>> 0;
-  }
-  const hue = h % 360;
-  return `oklch(0.5 0.16 ${hue})`;
 }

@@ -8,6 +8,7 @@ export const JobStatus = z.enum([
   "Proposal Accepted",
   "Scheduled",
   "In Progress",
+  "On Hold",
   "Completed",
 ]);
 export type JobStatus = z.infer<typeof JobStatus>;
@@ -41,8 +42,30 @@ export const Job = z.object({
   scheduledEnd: z.string().optional(),      // YYYY-MM-DD
   assignedSubId: z.string().optional(),
   notes: z.string().optional(),
+  // Pre-job staging flags
+  emailSent: z.boolean().optional(),
+  customerReplied: z.boolean().optional(),
+  colorsReceived: z.boolean().optional(),
+  workOrderUrl: z.string().optional(),
+  workOrderReady: z.boolean().optional(),
 });
 export type Job = z.infer<typeof Job>;
+
+/**
+ * Steps in the order they happen during pre-job staging. Each one is either
+ * a checkbox the user can toggle, or a state derived from another field.
+ *
+ * Add new steps here AND extend `computeStaging()` in `lib/jobs/staging.ts`.
+ */
+export const StagingStep = z.enum([
+  "emailSent",
+  "customerReplied",
+  "colorsReceived",
+  "workOrderReady",
+  "crewAssigned",
+  "scheduled",
+]);
+export type StagingStep = z.infer<typeof StagingStep>;
 
 export const SubStatus = z.enum([
   "Active",
@@ -53,6 +76,12 @@ export const SubStatus = z.enum([
 ]);
 export type SubStatus = z.infer<typeof SubStatus>;
 
+/**
+ * Hex color (e.g. "#0e3f86") used to tint a sub's events on the calendar.
+ * Empty/undefined = fall back to a deterministic per-sub hue.
+ */
+export const HexColor = z.string().regex(/^#[0-9a-fA-F]{6}$/, "Expected #RRGGBB");
+
 export const Sub = z.object({
   id: z.string(),
   name: z.string(),                         // = Company Name on Airtable
@@ -60,6 +89,7 @@ export const Sub = z.object({
   phone: z.string().optional(),
   email: z.string().optional(),
   status: SubStatus.optional(),
+  color: z.string().optional(),             // hex (#RRGGBB) or empty
   notes: z.string().optional(),
 });
 export type Sub = z.infer<typeof Sub>;

@@ -38,6 +38,10 @@ const PatchBody = z.object({
   scheduledEnd: DateOnly.nullable().optional(),
   assignedSubId: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
+  emailSent: z.boolean().optional(),
+  customerReplied: z.boolean().optional(),
+  colorsReceived: z.boolean().optional(),
+  workOrderReady: z.boolean().optional(),
 });
 
 export async function PATCH(req: Request, { params }: Ctx) {
