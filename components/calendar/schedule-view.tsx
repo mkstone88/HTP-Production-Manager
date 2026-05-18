@@ -144,13 +144,25 @@ export function ScheduleView() {
     () =>
       visibleScheduled.map((j) => {
         const isCompleted = j.status === "Completed";
+        const isOnHold = j.status === "On Hold";
         const color = subColor({
           subId: j.assignedSubId,
           override: j.assignedSubId
             ? subsById.get(j.assignedSubId)?.color
             : undefined,
           completed: isCompleted,
+          onHold: isOnHold,
         });
+        const textColor = isCompleted
+          ? "#71717a"
+          : isOnHold
+            ? "#475569"
+            : "#ffffff";
+        const classNames = isCompleted
+          ? ["job-event-completed"]
+          : isOnHold
+            ? ["job-event-onhold"]
+            : ["job-event"];
         return {
           id: j.id,
           title: j.name || j.customerName || "Job",
@@ -161,13 +173,14 @@ export function ScheduleView() {
             jobId: j.id,
             subId: j.assignedSubId,
             completed: isCompleted,
+            onHold: isOnHold,
             customerName: j.customerName,
             status: j.status,
           },
           backgroundColor: color,
-          borderColor: color,
-          textColor: isCompleted ? "#71717a" : "#ffffff",
-          classNames: isCompleted ? ["job-event-completed"] : ["job-event"],
+          borderColor: isOnHold ? "#94a3b8" : color,
+          textColor,
+          classNames,
         };
       }),
     [visibleScheduled, subsById],
@@ -384,11 +397,14 @@ export function ScheduleView() {
                     <span className="truncate">
                       {sub ? sub.name : "Unassigned"}
                     </span>
-                    {props.status && props.status !== "Scheduled" && (
+                    {/* Only badge unusual statuses; On Hold and Completed are
+                        already visually distinct via the card styling. */}
+                    {props.status === "Proposal Accepted" ||
+                    props.status === "In Progress" ? (
                       <span className="shrink-0 rounded-sm bg-white/20 px-1 py-px">
                         {props.status}
                       </span>
-                    )}
+                    ) : null}
                   </div>
                 </div>
               );
