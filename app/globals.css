@@ -170,6 +170,12 @@
   text-decoration: line-through;
   text-decoration-color: rgba(0, 0, 0, 0.3);
 }
+/* On Hold: dashed border + muted opacity. Visible but clearly parked. */
+.fc .job-event-onhold {
+  opacity: 0.75;
+  border-style: dashed !important;
+  border-width: 1.5px !important;
+}
 /* Bigger toolbar buttons on mobile so they're easy to tap. */
 @media (max-width: 640px) {
   .fc .fc-button {
