@@ -111,7 +111,9 @@ export function JobsList() {
   const counts = useMemo(() => {
     const all = jobs.data ?? [];
     return {
-      triage: all.filter((j) => j.status === "Proposal Accepted").length,
+      triage: all.filter(
+        (j) => j.status === "Proposal Accepted" || j.status === "Scheduled",
+      ).length,
       active: all.filter((j) => j.status !== "Completed").length,
       completed: all.filter((j) => j.status === "Completed").length,
       all: all.length,
