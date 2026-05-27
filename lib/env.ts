@@ -8,7 +8,6 @@ function read(name: string): string | undefined {
 export const env = {
   AIRTABLE_PAT: read("AIRTABLE_PAT"),
   AIRTABLE_BASE_ID: read("AIRTABLE_BASE_ID"),
-  ADMIN_PASSCODE: read("ADMIN_PASSCODE"),
   AUTH_SECRET: read("AUTH_SECRET"),
 };
 

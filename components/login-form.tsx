@@ -14,7 +14,8 @@ export function LoginForm() {
   const params = useSearchParams();
   const from = params.get("from") || "/schedule";
 
-  const [passcode, setPasscode] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -26,7 +27,7 @@ export function LoginForm() {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ passcode }),
+        body: JSON.stringify({ email, password }),
       });
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
@@ -57,19 +58,31 @@ export function LoginForm() {
               Production Manager
             </h1>
             <p className="text-sm text-muted-foreground">
-              Enter the team passcode to continue.
+              Sign in with your work email.
             </p>
           </div>
           <form onSubmit={onSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="passcode">Passcode</Label>
+              <Label htmlFor="email">Email</Label>
               <Input
-                id="passcode"
+                id="email"
+                type="email"
+                autoComplete="username"
+                autoFocus
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={submitting}
+                className="h-11"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
                 type="password"
                 autoComplete="current-password"
-                autoFocus
-                value={passcode}
-                onChange={(e) => setPasscode(e.target.value)}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 disabled={submitting}
                 className="h-11"
               />
@@ -78,7 +91,7 @@ export function LoginForm() {
             <Button
               type="submit"
               className="h-11 w-full"
-              disabled={submitting || !passcode}
+              disabled={submitting || !email || !password}
             >
               {submitting ? "Signing in…" : "Sign in"}
             </Button>
