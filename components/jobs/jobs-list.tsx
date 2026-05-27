@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
+import { PauseCircle, Plus } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
@@ -27,6 +27,15 @@ async function fetchSubs(): Promise<Sub[]> {
   return data.subs;
 }
 
+function sortByStart(a: Job, b: Job): number {
+  const ad = a.scheduledStart ?? "";
+  const bd = b.scheduledStart ?? "";
+  if (ad && bd) return ad.localeCompare(bd);
+  if (ad) return -1;
+  if (bd) return 1;
+  return a.name.localeCompare(b.name);
+}
+
 export function JobsList() {
   const qc = useQueryClient();
   const [tab, setTab] = useState<Tab>("triage");
@@ -49,26 +58,28 @@ export function JobsList() {
     [subs.data],
   );
 
-  const filteredJobs = useMemo(() => {
+  /**
+   * Active tab splits into two groups: real active work and parked (On Hold).
+   * Other tabs use a single flat list.
+   */
+  const groups = useMemo(() => {
     const all = jobs.data ?? [];
-    if (tab === "active") return all.filter((j) => j.status !== "Completed");
-    if (tab === "completed") return all.filter((j) => j.status === "Completed");
-    return all;
+    if (tab === "completed") {
+      return {
+        primary: all.filter((j) => j.status === "Completed").sort(sortByStart),
+        onHold: [] as Job[],
+      };
+    }
+    if (tab === "all") {
+      return { primary: [...all].sort(sortByStart), onHold: [] as Job[] };
+    }
+    return {
+      primary: all
+        .filter((j) => j.status !== "Completed" && j.status !== "On Hold")
+        .sort(sortByStart),
+      onHold: all.filter((j) => j.status === "On Hold").sort(sortByStart),
+    };
   }, [jobs.data, tab]);
-
-  const sortedJobs = useMemo(
-    () =>
-      [...filteredJobs].sort((a, b) => {
-        // Scheduled jobs first (by date asc), then unscheduled by name.
-        const ad = a.scheduledStart ?? "";
-        const bd = b.scheduledStart ?? "";
-        if (ad && bd) return ad.localeCompare(bd);
-        if (ad) return -1;
-        if (bd) return 1;
-        return a.name.localeCompare(b.name);
-      }),
-    [filteredJobs],
-  );
 
   const reassign = useMutation({
     mutationFn: ({ id, subId }: { id: string; subId: string | null }) =>
@@ -100,12 +111,36 @@ export function JobsList() {
   const counts = useMemo(() => {
     const all = jobs.data ?? [];
     return {
-      triage: all.filter((j) => j.status === "Proposal Accepted").length,
+      triage: all.filter(
+        (j) => j.status === "Proposal Accepted" || j.status === "Scheduled",
+      ).length,
       active: all.filter((j) => j.status !== "Completed").length,
       completed: all.filter((j) => j.status === "Completed").length,
       all: all.length,
     };
   }, [jobs.data]);
+
+  const totalShown = groups.primary.length + groups.onHold.length;
+  const emptyState =
+    !jobs.isLoading && !jobs.error && totalShown === 0
+      ? tab === "active"
+        ? "No active jobs. 🎉"
+        : tab === "completed"
+          ? "No completed jobs yet."
+          : "No jobs yet."
+      : null;
+
+  const renderRow = (j: Job, dimmed: boolean) => (
+    <JobRow
+      key={j.id}
+      job={j}
+      dimmed={dimmed}
+      assignableSubs={assignableSubs}
+      subsById={subsById}
+      onOpen={(id) => setEditingId(id)}
+      onReassign={(id, subId) => reassign.mutate({ id, subId })}
+    />
+  );
 
   return (
     <div className="flex flex-1 flex-col">
@@ -152,100 +187,121 @@ export function JobsList() {
           {jobs.error instanceof Error ? jobs.error.message : "Failed to load jobs."}
         </div>
       )}
-      {tab !== "triage" && !jobs.isLoading && !jobs.error && sortedJobs.length === 0 && (
-        <div className="p-4 text-sm text-muted-foreground">
-          {tab === "active"
-            ? "No active jobs. 🎉"
-            : tab === "completed"
-              ? "No completed jobs yet."
-              : "No jobs yet."}
-        </div>
+      {tab !== "triage" && emptyState && (
+        <div className="p-4 text-sm text-muted-foreground">{emptyState}</div>
       )}
 
       {tab !== "triage" && (
       <ul className="divide-y">
-        {sortedJobs.map((j) => {
-          const completed = j.status === "Completed";
-          return (
-            <li key={j.id} className={cn(completed && "opacity-70")}>
-              <div className="flex items-stretch">
-                <button
-                  type="button"
-                  onClick={() => setEditingId(j.id)}
-                  className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/40 active:bg-muted"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate font-medium">
-                      {j.name || j.customerName || "Job"}
-                    </div>
-                    <div className="truncate text-sm text-muted-foreground">
-                      {[j.customerName, j.address].filter(Boolean).join(" · ") || "—"}
-                    </div>
-                    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-                      <span>
-                        {j.scheduledStart
-                          ? `${j.scheduledStart}${
-                              j.scheduledEnd && j.scheduledEnd !== j.scheduledStart
-                                ? ` → ${j.scheduledEnd}`
-                                : ""
-                            }`
-                          : "Unscheduled"}
-                      </span>
-                      {j.status && (
-                        <span
-                          className={cn(
-                            "rounded-full px-2 py-0.5",
-                            statusColor(j.status),
-                          )}
-                        >
-                          {j.status}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </button>
-
-                {/* Inline crew picker */}
-                <div className="flex w-40 shrink-0 items-center justify-end pr-3 sm:w-56 sm:pr-4">
-                  <select
-                    value={j.assignedSubId ?? ""}
-                    onChange={(e) => {
-                      const v = e.target.value || null;
-                      reassign.mutate({ id: j.id, subId: v });
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                    aria-label="Crew leader"
-                    className={cn(
-                      "h-10 w-full max-w-[14rem] rounded-md border border-input bg-background px-2 text-sm",
-                      "transition-colors",
-                      !j.assignedSubId && "text-muted-foreground",
-                    )}
-                  >
-                    <option value="">Unassigned</option>
-                    {assignableSubs.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name}
-                      </option>
-                    ))}
-                    {/* If currently assigned to an inactive sub, keep showing them. */}
-                    {j.assignedSubId &&
-                      !assignableSubs.find((s) => s.id === j.assignedSubId) &&
-                      subsById.get(j.assignedSubId) && (
-                        <option value={j.assignedSubId}>
-                          {subsById.get(j.assignedSubId)?.name} (inactive)
-                        </option>
-                      )}
-                  </select>
-                </div>
-              </div>
-            </li>
-          );
-        })}
+        {groups.primary.map((j) => renderRow(j, j.status === "Completed"))}
       </ul>
+      )}
+
+      {tab !== "triage" && groups.onHold.length > 0 && (
+        <>
+          <div className="flex items-center gap-2 border-y bg-muted/50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <PauseCircle className="size-4" />
+            On Hold
+            <span className="ml-1 font-normal opacity-70">
+              ({groups.onHold.length})
+            </span>
+          </div>
+          <ul className="divide-y">
+            {groups.onHold.map((j) => renderRow(j, true))}
+          </ul>
+        </>
       )}
 
       <JobQuickEdit jobId={editingId} onClose={() => setEditingId(null)} />
     </div>
+  );
+}
+
+function JobRow({
+  job,
+  dimmed,
+  assignableSubs,
+  subsById,
+  onOpen,
+  onReassign,
+}: {
+  job: Job;
+  dimmed: boolean;
+  assignableSubs: Sub[];
+  subsById: Map<string, Sub>;
+  onOpen: (id: string) => void;
+  onReassign: (id: string, subId: string | null) => void;
+}) {
+  const j = job;
+  return (
+    <li className={cn(dimmed && "opacity-60")}>
+      <div className="flex items-stretch">
+        <button
+          type="button"
+          onClick={() => onOpen(j.id)}
+          className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/40 active:bg-muted"
+        >
+          <div className="min-w-0 flex-1">
+            <div className="truncate font-medium">
+              {j.name || j.customerName || "Job"}
+            </div>
+            <div className="truncate text-sm text-muted-foreground">
+              {[j.customerName, j.address].filter(Boolean).join(" · ") || "—"}
+            </div>
+            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+              <span>
+                {j.scheduledStart
+                  ? `${j.scheduledStart}${
+                      j.scheduledEnd && j.scheduledEnd !== j.scheduledStart
+                        ? ` → ${j.scheduledEnd}`
+                        : ""
+                    }`
+                  : "Unscheduled"}
+              </span>
+              {j.status && (
+                <span
+                  className={cn(
+                    "rounded-full px-2 py-0.5",
+                    statusColor(j.status),
+                  )}
+                >
+                  {j.status}
+                </span>
+              )}
+            </div>
+          </div>
+        </button>
+
+        {/* Inline crew picker */}
+        <div className="flex w-40 shrink-0 items-center justify-end pr-3 sm:w-56 sm:pr-4">
+          <select
+            value={j.assignedSubId ?? ""}
+            onChange={(e) => onReassign(j.id, e.target.value || null)}
+            onClick={(e) => e.stopPropagation()}
+            aria-label="Crew leader"
+            className={cn(
+              "h-10 w-full max-w-[14rem] rounded-md border border-input bg-background px-2 text-sm",
+              "transition-colors",
+              !j.assignedSubId && "text-muted-foreground",
+            )}
+          >
+            <option value="">Unassigned</option>
+            {assignableSubs.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+            {j.assignedSubId &&
+              !assignableSubs.find((s) => s.id === j.assignedSubId) &&
+              subsById.get(j.assignedSubId) && (
+                <option value={j.assignedSubId}>
+                  {subsById.get(j.assignedSubId)?.name} (inactive)
+                </option>
+              )}
+          </select>
+        </div>
+      </div>
+    </li>
   );
 }
 
@@ -290,6 +346,8 @@ function statusColor(s: string): string {
       return "bg-emerald-100 text-emerald-900 dark:bg-emerald-900/30 dark:text-emerald-200";
     case "Scheduled":
       return "bg-amber-100 text-amber-900 dark:bg-amber-900/30 dark:text-amber-200";
+    case "On Hold":
+      return "bg-slate-200 text-slate-700 dark:bg-slate-700/40 dark:text-slate-200";
     default:
       return "bg-blue-100 text-blue-900 dark:bg-blue-900/30 dark:text-blue-200";
   }

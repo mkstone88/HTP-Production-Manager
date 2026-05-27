@@ -8,6 +8,7 @@ export const JobStatus = z.enum([
   "Proposal Accepted",
   "Scheduled",
   "In Progress",
+  "On Hold",
   "Completed",
 ]);
 export type JobStatus = z.infer<typeof JobStatus>;
