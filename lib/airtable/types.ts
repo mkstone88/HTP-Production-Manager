@@ -47,6 +47,17 @@ export const Job = z.object({
   colorsReceived: z.boolean().optional(),
   workOrderUrl: z.string().optional(),
   workOrderReady: z.boolean().optional(),
+  // Job-costing fields. projectAmount/subPayout are the only ones the app writes;
+  // the rest are Airtable-computed and surfaced read-only.
+  projectAmount: z.number().optional(),         // customer paid total (adjustable)
+  subPayout: z.number().optional(),             // crew pay (manual entry)
+  totalMaterialsExpense: z.number().optional(), // rollup of assigned invoice totals
+  grossProfit: z.number().optional(),
+  grossProfitPct: z.number().optional(),
+  totalCogs: z.number().optional(),
+  laborOverage: z.number().optional(),
+  materialsOverage: z.number().optional(),
+  jobCostingComplete: z.boolean().optional(),
 });
 export type Job = z.infer<typeof Job>;
 
@@ -92,6 +103,25 @@ export const Sub = z.object({
   notes: z.string().optional(),
 });
 export type Sub = z.infer<typeof Sub>;
+
+/**
+ * Materials Expense (= Airtable "Materials Expenses" record). A single vendor
+ * invoice that may or may not be assigned to a Job. `projectId` empty = unassigned.
+ */
+export const MaterialsExpense = z.object({
+  id: z.string(),
+  name: z.string(),                         // formula on Airtable
+  vendor: z.string().optional(),            // singleSelect choice name
+  invoiceDate: z.string().optional(),       // YYYY-MM-DD
+  invoiceNumber: z.string().optional(),
+  po: z.string().optional(),                // PO# — the job's street address
+  projectId: z.string().optional(),         // linked Project record ID (empty = unassigned)
+  invoiceTotal: z.number().optional(),
+  gallons: z.number().optional(),
+  totalSupplies: z.number().optional(),
+  totalPaint: z.number().optional(),
+});
+export type MaterialsExpense = z.infer<typeof MaterialsExpense>;
 
 export const Contact = z.object({
   id: z.string(),

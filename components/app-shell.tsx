@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Calendar, ClipboardList, LogOut, Users } from "lucide-react";
+import { Calendar, ClipboardList, DollarSign, LogOut, Users } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -12,6 +12,7 @@ const NAV = [
   { href: "/schedule", label: "Schedule", icon: Calendar },
   { href: "/jobs", label: "Jobs", icon: ClipboardList },
   { href: "/subs", label: "Subs", icon: Users },
+  { href: "/costing", label: "Costing", icon: DollarSign },
 ] as const;
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -92,7 +93,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Mobile bottom nav */}
       <nav
-        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-3 border-t bg-background pb-[env(safe-area-inset-bottom)] md:hidden"
+        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t bg-background pb-[env(safe-area-inset-bottom)] md:hidden"
         aria-label="Primary"
       >
         {NAV.map((item) => {
