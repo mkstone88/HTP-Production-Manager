@@ -4,7 +4,7 @@ import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin, { Draggable } from "@fullcalendar/interaction";
 import FullCalendar from "@fullcalendar/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronUp, Plus } from "lucide-react";
+import { AlertTriangle, ChevronUp, Plus } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -15,8 +15,18 @@ import type { Job, Sub } from "@/lib/airtable/types";
 import { subColor } from "@/lib/sub-color";
 import { cn } from "@/lib/utils";
 
+import type { CrewConflict } from "@/app/api/jobs/conflicts/route";
+
 type JobsResponse = { jobs: Job[]; error?: string };
 type SubsResponse = { subs: Sub[]; error?: string };
+
+async function fetchConflicts(): Promise<CrewConflict[]> {
+  const res = await fetch("/api/jobs/conflicts", { cache: "no-store" });
+  const data = (await res.json()) as { conflicts?: CrewConflict[]; error?: string };
+  if (!res.ok || !data.conflicts)
+    throw new Error(data.error || "Failed to load conflicts");
+  return data.conflicts;
+}
 
 async function fetchJobs(): Promise<Job[]> {
   const res = await fetch("/api/jobs", { cache: "no-store" });
@@ -82,6 +92,24 @@ export function ScheduleView() {
   const [error, setError] = useState<string | null>(null);
 
   const jobsQuery = useQuery({ queryKey: ["jobs"], queryFn: fetchJobs });
+  // Invalidated together with ["jobs"] (prefix match), so it refreshes after
+  // every drag/drop/resize/reassignment.
+  const conflictsQuery = useQuery({
+    queryKey: ["jobs", "conflicts"],
+    queryFn: fetchConflicts,
+  });
+  const conflicts = useMemo(
+    () => conflictsQuery.data ?? [],
+    [conflictsQuery.data],
+  );
+  const conflictJobIds = useMemo(() => {
+    const s = new Set<string>();
+    for (const c of conflicts) {
+      s.add(c.jobs[0].id);
+      s.add(c.jobs[1].id);
+    }
+    return s;
+  }, [conflicts]);
   const subsQuery = useQuery({ queryKey: ["subs", "active"], queryFn: fetchSubs });
 
   const subsById = useMemo(() => {
@@ -248,6 +276,28 @@ export function ScheduleView() {
           {error}
         </div>
       )}
+      {conflicts.length > 0 && (
+        <details className="border-b bg-amber-50 text-amber-900 dark:bg-amber-900/20 dark:text-amber-200">
+          <summary className="flex cursor-pointer items-center gap-2 px-4 py-2 text-sm font-medium">
+            <AlertTriangle className="size-4 shrink-0" />
+            {conflicts.length === 1
+              ? "1 crew overlap — worth a double-check"
+              : `${conflicts.length} crew overlaps — worth a double-check`}
+          </summary>
+          <ul className="space-y-1 px-4 pb-3 text-sm">
+            {conflicts.map((c, i) => (
+              <li key={`${c.subId}-${i}`}>
+                <span className="font-medium">{c.subName}</span>:{" "}
+                {c.jobs[0].name} & {c.jobs[1].name} overlap{" "}
+                <span className="tabular-nums">
+                  {c.overlapStart}
+                  {c.overlapEnd !== c.overlapStart ? ` → ${c.overlapEnd}` : ""}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
 
       <div className="relative flex flex-1 flex-col lg:flex-row">
         {/* Desktop: persistent sidebar. Mobile: bottom drawer with peek. */}
@@ -379,20 +429,29 @@ export function ScheduleView() {
                 status?: string;
               };
               const sub = props.subId ? subsById.get(props.subId) : null;
+              const hasConflict = Boolean(
+                props.jobId && conflictJobIds.has(props.jobId),
+              );
               const isWeek = info.view.type === "dayGridWeek";
               if (!isWeek) {
                 // Month view: compact one-liner so we can fit several per cell.
                 return (
-                  <div className="overflow-hidden truncate px-1 leading-tight">
-                    <span className="font-medium">{info.event.title}</span>
+                  <div className="flex items-center gap-1 overflow-hidden truncate px-1 leading-tight">
+                    {hasConflict && (
+                      <AlertTriangle className="size-3 shrink-0 text-amber-300" />
+                    )}
+                    <span className="truncate font-medium">{info.event.title}</span>
                   </div>
                 );
               }
               // Week view: roomier card with crew + status.
               return (
                 <div className="flex flex-col gap-0.5 overflow-hidden px-1.5 py-1 leading-tight">
-                  <div className="truncate text-[12px] font-semibold">
-                    {info.event.title}
+                  <div className="flex items-center gap-1 truncate text-[12px] font-semibold">
+                    {hasConflict && (
+                      <AlertTriangle className="size-3 shrink-0 text-amber-300" />
+                    )}
+                    <span className="truncate">{info.event.title}</span>
                   </div>
                   {props.customerName && (
                     <div className="truncate text-[11px] opacity-90">

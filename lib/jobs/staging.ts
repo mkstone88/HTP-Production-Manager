@@ -46,6 +46,8 @@ export type StagingSummary = StagingFlags & {
   needsAttention: boolean;
   /** Days from `today` until the scheduled start (negative = past). Undefined if unscheduled. */
   daysUntilStart?: number;
+  /** Days since the proposal was accepted (Job Won Date). Undefined if unknown. */
+  ageDays?: number;
 };
 
 const STEP_KEYS: (keyof StagingFlags)[] = [
@@ -94,8 +96,19 @@ export function computeStaging(
   const daysUntilStart = job.scheduledStart
     ? daysBetween(opts.today, job.scheduledStart)
     : undefined;
+  const ageDays = job.jobWonDate
+    ? daysBetween(job.jobWonDate, opts.today)
+    : undefined;
   const within = opts.attentionWithinDays ?? 14;
   const needsAttention =
     daysUntilStart !== undefined && daysUntilStart <= within && done < total;
-  return { ...flags, done, total, ready: done === total, needsAttention, daysUntilStart };
+  return {
+    ...flags,
+    done,
+    total,
+    ready: done === total,
+    needsAttention,
+    daysUntilStart,
+    ageDays,
+  };
 }

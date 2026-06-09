@@ -36,6 +36,11 @@ export async function GET() {
         if (ad && bd) return ad.localeCompare(bd);
         if (ad) return -1;
         if (bd) return 1;
+        // Unscheduled jobs: oldest accepted first, so the list reads as a
+        // work queue instead of an alphabetical pile.
+        const aw = a.jobWonDate ?? "";
+        const bw = b.jobWonDate ?? "";
+        if (aw && bw && aw !== bw) return aw.localeCompare(bw);
         return a.name.localeCompare(b.name);
       });
     return NextResponse.json({ jobs: triage });

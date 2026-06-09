@@ -7,8 +7,12 @@ import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { JobStatus, type Job, type Sub } from "@/lib/airtable/types";
+import { JobStatus, type Job } from "@/lib/airtable/types";
 import { isHttpUrl, mapsHref } from "@/lib/contact-links";
+import {
+  complianceFlag,
+  type SubWithCompliance,
+} from "@/lib/subs/compliance";
 import { cn } from "@/lib/utils";
 
 const statuses = JobStatus.options;
@@ -20,9 +24,12 @@ async function fetchJob(id: string): Promise<Job> {
   return data.job;
 }
 
-async function fetchSubs(): Promise<Sub[]> {
+async function fetchSubs(): Promise<SubWithCompliance[]> {
   const res = await fetch("/api/subs", { cache: "no-store" });
-  const data = (await res.json()) as { subs?: Sub[]; error?: string };
+  const data = (await res.json()) as {
+    subs?: SubWithCompliance[];
+    error?: string;
+  };
   if (!res.ok || !data.subs) throw new Error(data.error || "Failed to load subs");
   return data.subs;
 }
@@ -237,6 +244,7 @@ export function JobQuickEdit({ jobId, onClose }: Props) {
                   {activeSubs.map((s) => (
                     <option key={s.id} value={s.id}>
                       {s.name}
+                      {complianceFlag(s.compliance)}
                     </option>
                   ))}
                 </select>

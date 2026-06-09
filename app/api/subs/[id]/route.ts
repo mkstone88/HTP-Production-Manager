@@ -3,8 +3,14 @@ import { z } from "zod";
 
 import { errorResponse } from "@/lib/airtable/errors";
 import { SubsRepo } from "@/lib/airtable/subs";
-import { AirtableRecordId, HexColor, SubStatus } from "@/lib/airtable/types";
+import {
+  AirtableRecordId,
+  DateOnly,
+  HexColor,
+  SubStatus,
+} from "@/lib/airtable/types";
 import { requireActiveUser } from "@/lib/session";
+import { withCompliance } from "@/lib/subs/compliance";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +25,7 @@ export async function GET(_req: Request, { params }: Ctx) {
   if (!AirtableRecordId.safeParse(id).success) return invalidId();
   try {
     const sub = await SubsRepo.get(id);
-    return NextResponse.json({ sub });
+    return NextResponse.json({ sub: withCompliance(sub) });
   } catch (err) {
     return errorResponse(err);
   }
@@ -34,6 +40,8 @@ const PatchBody = z.object({
   status: SubStatus.nullable().optional(),
   color: HexColor.nullable().optional(),
   notes: z.string().nullable().optional(),
+  insuranceExpiration: DateOnly.nullable().optional(),
+  workersCompExpiration: DateOnly.nullable().optional(),
 });
 
 export async function PATCH(req: Request, { params }: Ctx) {
@@ -48,7 +56,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
   try {
     await requireActiveUser();
     const sub = await SubsRepo.update(id, body);
-    return NextResponse.json({ sub });
+    return NextResponse.json({ sub: withCompliance(sub) });
   } catch (err) {
     return errorResponse(err);
   }

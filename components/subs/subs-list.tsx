@@ -1,18 +1,21 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Phone, Plus } from "lucide-react";
+import { AlertTriangle, Phone, Plus } from "lucide-react";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
-import type { Sub } from "@/lib/airtable/types";
 import { telHref } from "@/lib/contact-links";
 import { subColor } from "@/lib/sub-color";
+import type { SubWithCompliance } from "@/lib/subs/compliance";
 import { cn } from "@/lib/utils";
 
-async function fetchSubs(): Promise<Sub[]> {
+async function fetchSubs(): Promise<SubWithCompliance[]> {
   const res = await fetch("/api/subs", { cache: "no-store" });
-  const data = (await res.json()) as { subs?: Sub[]; error?: string };
+  const data = (await res.json()) as {
+    subs?: SubWithCompliance[];
+    error?: string;
+  };
   if (!res.ok || !data.subs) throw new Error(data.error || "Failed to load subs");
   return data.subs;
 }
@@ -72,6 +75,19 @@ export function SubsList() {
                   {[s.contactName, s.phone].filter(Boolean).join(" · ") || "—"}
                 </div>
               </div>
+              {s.compliance?.summary && s.compliance.status !== "missing" && (
+                <span
+                  className={cn(
+                    "inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs",
+                    s.compliance.status === "expired"
+                      ? "bg-red-100 font-medium text-red-900 dark:bg-red-900/30 dark:text-red-200"
+                      : "bg-amber-100 text-amber-900 dark:bg-amber-900/30 dark:text-amber-200",
+                  )}
+                >
+                  <AlertTriangle className="size-3" />
+                  {s.compliance.summary}
+                </span>
+              )}
               {s.status && (
                 <span
                   className={cn(

@@ -30,6 +30,12 @@ export function SubForm(props: Props) {
   );
   const [color, setColor] = useState<string>(props.initial?.color ?? "");
   const [notes, setNotes] = useState(props.initial?.notes ?? "");
+  const [insuranceExpiration, setInsuranceExpiration] = useState(
+    props.initial?.insuranceExpiration ?? "",
+  );
+  const [workersCompExpiration, setWorkersCompExpiration] = useState(
+    props.initial?.workersCompExpiration ?? "",
+  );
   const [error, setError] = useState<string | null>(null);
 
   const save = useMutation({
@@ -42,6 +48,10 @@ export function SubForm(props: Props) {
         status,
         color: color || (props.mode === "edit" ? null : undefined),
         notes,
+        insuranceExpiration:
+          insuranceExpiration || (props.mode === "edit" ? null : undefined),
+        workersCompExpiration:
+          workersCompExpiration || (props.mode === "edit" ? null : undefined),
       };
       const url = props.mode === "edit" ? `/api/subs/${props.initial.id}` : "/api/subs";
       const method = props.mode === "edit" ? "PATCH" : "POST";
@@ -124,6 +134,26 @@ export function SubForm(props: Props) {
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            className="h-11"
+          />
+        </div>
+        <div className="grid gap-1.5">
+          <Label htmlFor="insuranceExpiration">Insurance expires</Label>
+          <Input
+            id="insuranceExpiration"
+            type="date"
+            value={insuranceExpiration}
+            onChange={(e) => setInsuranceExpiration(e.target.value)}
+            className="h-11"
+          />
+        </div>
+        <div className="grid gap-1.5">
+          <Label htmlFor="workersCompExpiration">Worker&rsquo;s comp expires</Label>
+          <Input
+            id="workersCompExpiration"
+            type="date"
+            value={workersCompExpiration}
+            onChange={(e) => setWorkersCompExpiration(e.target.value)}
             className="h-11"
           />
         </div>

@@ -46,6 +46,7 @@ export const Job = z.object({
   customerName: z.string().optional(),      // looked up via the customer link
   address: z.string().optional(),           // looked up via the customer link
   status: JobStatus.optional(),
+  jobWonDate: z.string().optional(),        // YYYY-MM-DD — proposal accepted / record created (read-only)
   projectType: ProjectType.optional(),
   scheduledStart: z.string().optional(),    // YYYY-MM-DD
   scheduledEnd: z.string().optional(),      // YYYY-MM-DD
@@ -111,6 +112,8 @@ export const Sub = z.object({
   status: SubStatus.optional(),
   color: z.string().optional(),             // hex (#RRGGBB) or empty
   notes: z.string().optional(),
+  insuranceExpiration: z.string().optional(),   // YYYY-MM-DD
+  workersCompExpiration: z.string().optional(), // YYYY-MM-DD
 });
 export type Sub = z.infer<typeof Sub>;
 

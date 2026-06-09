@@ -35,6 +35,8 @@ function fromRecord(rec: AirtableRecord<JobAirtableFields>): Job {
     customerName: firstString(f[jobFields.customerName]),
     address: firstString(f[jobFields.address]),
     status: firstString(f[jobFields.status]) as JobStatus | undefined,
+    // createdTime comes back as an ISO datetime; keep just the date part.
+    jobWonDate: firstString(f[jobFields.jobWonDate])?.slice(0, 10),
     projectType: firstString(f[jobFields.projectType]) as ProjectType | undefined,
     scheduledStart: firstString(f[jobFields.scheduledStart]),
     scheduledEnd: firstString(f[jobFields.scheduledEnd]),

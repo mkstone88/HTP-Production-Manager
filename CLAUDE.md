@@ -4,6 +4,15 @@ House rules for code changes in this repo. Read this before starting work.
 The `README.md` covers running and deploying the app; this file covers how to
 *add* to it without breaking patterns.
 
+## Branches: `main` is the integration branch
+
+All work branches from `main` and all PRs target `main`. The GitHub repo's
+default-branch setting may still point at the old v1 branch
+(`claude/painting-management-app-RZNDq`) — **do not trust it**. If your
+session cloned a branch without job costing (`app/(app)/costing/`) or
+per-user login (`lib/session.ts`), you're on stale code: fetch and rebase
+onto `origin/main` before doing anything.
+
 ## What this app is
 
 Mobile-first Next.js PWA that's a thin operational layer over the

@@ -10,6 +10,10 @@ import { JobsTriage } from "@/components/jobs/jobs-triage";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { Job, Sub } from "@/lib/airtable/types";
+import {
+  complianceFlag,
+  type SubWithCompliance,
+} from "@/lib/subs/compliance";
 import { cn } from "@/lib/utils";
 
 type Tab = "triage" | "active" | "completed" | "all";
@@ -21,9 +25,12 @@ async function fetchJobs(): Promise<Job[]> {
   return data.jobs;
 }
 
-async function fetchSubs(): Promise<Sub[]> {
+async function fetchSubs(): Promise<SubWithCompliance[]> {
   const res = await fetch("/api/subs", { cache: "no-store" });
-  const data = (await res.json()) as { subs?: Sub[]; error?: string };
+  const data = (await res.json()) as {
+    subs?: SubWithCompliance[];
+    error?: string;
+  };
   if (!res.ok || !data.subs) throw new Error(data.error || "Failed to load subs");
   return data.subs;
 }
@@ -255,7 +262,7 @@ function JobRow({
 }: {
   job: Job;
   dimmed: boolean;
-  assignableSubs: Sub[];
+  assignableSubs: SubWithCompliance[];
   subsById: Map<string, Sub>;
   onOpen: (id: string) => void;
   onReassign: (id: string, subId: string | null) => void;
@@ -317,6 +324,7 @@ function JobRow({
             {assignableSubs.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name}
+                {complianceFlag(s.compliance)}
               </option>
             ))}
             {j.assignedSubId &&
