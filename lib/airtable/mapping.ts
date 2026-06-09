@@ -50,7 +50,7 @@ export const jobFields = {
   jobCostingComplete: "Job Costing Complete",    // checkbox (writable) — costing finalized; hides job from the worklist
   totalMaterialsExpense: "Total Materials Expense", // rollup (read-only) — sum of assigned invoice totals
   grossProfit: "Gross Profit",                   // formula (read-only)
-  grossProfitPct: "Gross Profit %",              // formula (read-only)
+  grossProfitPct: "GP %",                        // formula (read-only) — same Total Cogs basis as Gross Profit above; duplicate "Gross Profit %" exists but uses a different COGS basis
   totalCogs: "Total Cogs",                       // formula (read-only)
   laborOverage: "Labor Overage",                 // formula (read-only)
   materialsOverage: "Materials Overage",         // formula (read-only)
