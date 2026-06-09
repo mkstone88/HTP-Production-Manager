@@ -39,6 +39,36 @@ export async function requireUser(): Promise<AppUser> {
   return user;
 }
 
+/**
+ * Like `requireUser`, but caches the Airtable lookup briefly so it's cheap
+ * enough to call from every mutating data route. Without this check, a
+ * deactivated user could keep writing until their cookie expires (30 days) —
+ * the middleware only verifies the cookie signature. The cache means
+ * deactivation takes up to a minute to bite instead of being instant; use
+ * `requireUser`/`requireAdmin` where instant freshness matters.
+ */
+const USER_CACHE_MS = 60_000;
+const userCache = new Map<string, { user: AppUser | null; expiresAt: number }>();
+
+export async function requireActiveUser(): Promise<AppUser> {
+  const session = await getSession();
+  if (!session) throw new AuthError("Unauthorized", 401);
+  const hit = userCache.get(session.uid);
+  if (hit && Date.now() < hit.expiresAt) {
+    if (!hit.user) throw new AuthError("Unauthorized", 401);
+    return hit.user;
+  }
+  const user = await getCurrentUser();
+  userCache.set(session.uid, { user, expiresAt: Date.now() + USER_CACHE_MS });
+  if (!user) throw new AuthError("Unauthorized", 401);
+  return user;
+}
+
+/** Drop a user's cache entry so admin edits (deactivate/demote) bite immediately. */
+export function invalidateUserCache(uid: string): void {
+  userCache.delete(uid);
+}
+
 export async function requireAdmin(): Promise<AppUser> {
   const user = await requireUser();
   if (user.role !== "admin") throw new AuthError("Forbidden — admin only", 403);

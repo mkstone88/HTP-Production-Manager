@@ -29,6 +29,15 @@ export type ProjectType = z.infer<typeof ProjectType>;
  */
 export const DateOnly = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Expected YYYY-MM-DD");
 
+/**
+ * Airtable record ID ("rec" + 14 alphanumerics, e.g. "recAbC123dEf456gH").
+ * Validated on route params so arbitrary strings never reach the Airtable
+ * request path.
+ */
+export const AirtableRecordId = z
+  .string()
+  .regex(/^rec[a-zA-Z0-9]{14,17}$/, "Expected an Airtable record id");
+
 export const Job = z.object({
   id: z.string(),
   name: z.string(),                         // formula on Airtable, read-only

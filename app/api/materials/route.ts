@@ -3,6 +3,8 @@ import { z } from "zod";
 
 import { errorResponse } from "@/lib/airtable/errors";
 import { MaterialsRepo } from "@/lib/airtable/materials";
+import { AirtableRecordId } from "@/lib/airtable/types";
+import { requireActiveUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -38,7 +40,7 @@ const CreateBody = z.object({
   invoiceDate: DateOnly.optional(),
   invoiceNumber: z.string().optional(),
   po: z.string().optional(),
-  projectId: z.string().optional(),
+  projectId: AirtableRecordId.optional(),
   invoiceTotal: z.number().nonnegative().optional(),
   gallons: z.number().nonnegative().optional(),
   totalSupplies: z.number().nonnegative().optional(),
@@ -53,6 +55,7 @@ export async function POST(req: Request) {
     return errorResponse(err);
   }
   try {
+    await requireActiveUser();
     const invoice = await MaterialsRepo.create(body);
     return NextResponse.json({ invoice }, { status: 201 });
   } catch (err) {

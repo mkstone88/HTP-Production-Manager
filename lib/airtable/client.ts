@@ -35,6 +35,9 @@ class AirtableError extends Error {
   }
 }
 
+// Airtable allows 5 requests/sec per base; on 429 it asks clients to back off.
+const MAX_429_RETRIES = 2;
+
 async function request<T = unknown>(
   path: string,
   opts: RequestOpts = {},
@@ -46,32 +49,45 @@ async function request<T = unknown>(
       if (v !== undefined) url.searchParams.set(k, String(v));
     }
   }
+  const body = opts.body ? JSON.stringify(opts.body) : undefined;
 
-  const res = await fetch(url, {
-    method: opts.method ?? "GET",
-    headers: {
-      Authorization: `Bearer ${pat}`,
-      "Content-Type": "application/json",
-    },
-    body: opts.body ? JSON.stringify(opts.body) : undefined,
-    next: opts.next,
-    cache: opts.cache,
-  });
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetch(url, {
+      method: opts.method ?? "GET",
+      headers: {
+        Authorization: `Bearer ${pat}`,
+        "Content-Type": "application/json",
+      },
+      body,
+      next: opts.next,
+      cache: opts.cache,
+    });
 
-  if (!res.ok) {
-    let type: string | undefined;
-    let message = `Airtable ${res.status} ${res.statusText}`;
-    try {
-      const body = (await res.json()) as { error?: { type?: string; message?: string } };
-      type = body.error?.type;
-      if (body.error?.message) message = body.error.message;
-    } catch {
-      // ignore
+    if (res.status === 429 && attempt < MAX_429_RETRIES) {
+      const retryAfter = Number(res.headers.get("Retry-After"));
+      const waitMs =
+        Number.isFinite(retryAfter) && retryAfter > 0
+          ? retryAfter * 1000
+          : 1000 * (attempt + 1);
+      await new Promise((r) => setTimeout(r, waitMs));
+      continue;
     }
-    throw new AirtableError(message, res.status, type);
-  }
 
-  return (await res.json()) as T;
+    if (!res.ok) {
+      let type: string | undefined;
+      let message = `Airtable ${res.status} ${res.statusText}`;
+      try {
+        const body = (await res.json()) as { error?: { type?: string; message?: string } };
+        type = body.error?.type;
+        if (body.error?.message) message = body.error.message;
+      } catch {
+        // ignore
+      }
+      throw new AirtableError(message, res.status, type);
+    }
+
+    return (await res.json()) as T;
+  }
 }
 
 export const airtable = {
@@ -123,7 +139,7 @@ export const airtable = {
   ): Promise<AirtableRecord<T>> {
     const { baseId } = requireAirtableEnv();
     return request<AirtableRecord<T>>(
-      `/${baseId}/${encodeURIComponent(tableIdOrName)}/${recordId}`,
+      `/${baseId}/${encodeURIComponent(tableIdOrName)}/${encodeURIComponent(recordId)}`,
     );
   },
 
@@ -145,7 +161,7 @@ export const airtable = {
   ): Promise<AirtableRecord<T>> {
     const { baseId } = requireAirtableEnv();
     return request<AirtableRecord<T>>(
-      `/${baseId}/${encodeURIComponent(tableIdOrName)}/${recordId}`,
+      `/${baseId}/${encodeURIComponent(tableIdOrName)}/${encodeURIComponent(recordId)}`,
       { method: "PATCH", body: { fields } },
     );
   },
@@ -153,7 +169,7 @@ export const airtable = {
   async delete(tableIdOrName: string, recordId: string): Promise<void> {
     const { baseId } = requireAirtableEnv();
     await request(
-      `/${baseId}/${encodeURIComponent(tableIdOrName)}/${recordId}`,
+      `/${baseId}/${encodeURIComponent(tableIdOrName)}/${encodeURIComponent(recordId)}`,
       { method: "DELETE" },
     );
   },

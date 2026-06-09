@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { JobStatus, type Job, type Sub } from "@/lib/airtable/types";
+import { isHttpUrl, mapsHref } from "@/lib/contact-links";
 import { cn } from "@/lib/utils";
 
 const statuses = JobStatus.options;
@@ -157,7 +158,18 @@ export function JobQuickEdit({ jobId, onClose }: Props) {
             </h2>
             {(j?.customerName || j?.address) && (
               <div className="truncate text-xs text-muted-foreground">
-                {[j?.customerName, j?.address].filter(Boolean).join(" · ")}
+                {j?.customerName}
+                {j?.customerName && j?.address && " · "}
+                {j?.address && (
+                  <a
+                    href={mapsHref(j.address)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline underline-offset-2 hover:text-foreground"
+                  >
+                    {j.address}
+                  </a>
+                )}
               </div>
             )}
           </div>
@@ -270,7 +282,7 @@ export function JobQuickEdit({ jobId, onClose }: Props) {
                 </div>
               )}
 
-              <div className="pt-1">
+              <div className="flex flex-wrap gap-2 pt-1">
                 <Link
                   href={`/jobs/${id}`}
                   onClick={onClose}
@@ -282,6 +294,20 @@ export function JobQuickEdit({ jobId, onClose }: Props) {
                   Open full job
                   <ExternalLink className="size-3.5" />
                 </Link>
+                {j.workOrderUrl && isHttpUrl(j.workOrderUrl) && (
+                  <a
+                    href={j.workOrderUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={cn(
+                      "inline-flex h-10 items-center gap-2 rounded-md border px-3 text-sm font-medium",
+                      "transition-colors hover:bg-muted/60 active:bg-muted",
+                    )}
+                  >
+                    Work order
+                    <ExternalLink className="size-3.5" />
+                  </a>
+                )}
               </div>
             </>
           )}

@@ -6,6 +6,11 @@ const PUBLIC_PATHS = ["/login", "/api/auth/login", "/api/auth/logout"];
 // Areas only an admin may reach. Non-admins are bounced (UI) or get 403 (API).
 const ADMIN_PATHS = ["/users", "/api/users"];
 
+// Static assets served from /public. Checked in code (not the matcher) so the
+// extension exemption can never apply to /api/* routes — otherwise a request
+// like /api/jobs/x.png would skip auth entirely.
+const STATIC_FILE = /\.(?:png|jpg|jpeg|svg|webp|ico)$/i;
+
 function matchesPrefix(pathname: string, prefixes: string[]): boolean {
   return prefixes.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
@@ -13,6 +18,9 @@ function matchesPrefix(pathname: string, prefixes: string[]): boolean {
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
   if (matchesPrefix(pathname, PUBLIC_PATHS)) {
+    return NextResponse.next();
+  }
+  if (!pathname.startsWith("/api/") && STATIC_FILE.test(pathname)) {
     return NextResponse.next();
   }
 
@@ -42,8 +50,9 @@ export async function proxy(req: NextRequest) {
 }
 
 export const config = {
-  // Run on everything except Next internals and static assets.
+  // Run on everything except Next internals; static-file paths are skipped
+  // inside proxy() so the exemption stays scoped to non-API routes.
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|icons/|.*\\.(?:png|jpg|jpeg|svg|webp|ico)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|icons/).*)",
   ],
 };

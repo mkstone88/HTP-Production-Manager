@@ -3,14 +3,20 @@ import { z } from "zod";
 
 import { errorResponse } from "@/lib/airtable/errors";
 import { JobsRepo } from "@/lib/airtable/jobs";
-import { JobStatus, ProjectType } from "@/lib/airtable/types";
+import { AirtableRecordId, JobStatus, ProjectType } from "@/lib/airtable/types";
+import { requireActiveUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ id: string }> };
 
+function invalidId() {
+  return NextResponse.json({ error: "Invalid record id" }, { status: 400 });
+}
+
 export async function GET(_req: Request, { params }: Ctx) {
   const { id } = await params;
+  if (!AirtableRecordId.safeParse(id).success) return invalidId();
   try {
     const job = await JobsRepo.get(id);
     return NextResponse.json({ job });
@@ -49,6 +55,7 @@ const PatchBody = z.object({
 
 export async function PATCH(req: Request, { params }: Ctx) {
   const { id } = await params;
+  if (!AirtableRecordId.safeParse(id).success) return invalidId();
   let body: z.infer<typeof PatchBody>;
   try {
     body = PatchBody.parse(await req.json());
@@ -56,6 +63,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
     return errorResponse(err);
   }
   try {
+    await requireActiveUser();
     const job = await JobsRepo.update(id, body);
     return NextResponse.json({ job });
   } catch (err) {
@@ -65,7 +73,9 @@ export async function PATCH(req: Request, { params }: Ctx) {
 
 export async function DELETE(_req: Request, { params }: Ctx) {
   const { id } = await params;
+  if (!AirtableRecordId.safeParse(id).success) return invalidId();
   try {
+    await requireActiveUser();
     await JobsRepo.delete(id);
     return NextResponse.json({ ok: true });
   } catch (err) {

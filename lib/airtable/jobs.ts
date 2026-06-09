@@ -131,12 +131,24 @@ export const JobsRepo = {
     subId?: string;
     unscheduled?: boolean;
     unassigned?: boolean;
+    /** Filter server-side on Airtable rather than scanning the whole table. */
+    statuses?: JobStatus[];
     /** Completed jobs whose costing isn't finalized yet (the costing worklist). */
     costingNeeded?: boolean;
     /** Jobs whose costing is finalized (the dashboard's "already costed" set). */
     costed?: boolean;
   }): Promise<Job[]> {
-    const records = await airtable.listAll<JobAirtableFields>(tables.jobs);
+    const records = await airtable.listAll<JobAirtableFields>(
+      tables.jobs,
+      filter?.statuses?.length
+        ? {
+            // Status values come from the JobStatus enum, so no escaping needed.
+            filterByFormula: `OR(${filter.statuses
+              .map((s) => `{${jobFields.status}} = '${s}'`)
+              .join(", ")})`,
+          }
+        : {},
+    );
     let jobs = records.map(fromRecord);
     if (filter?.subId) jobs = jobs.filter((j) => j.assignedSubId === filter.subId);
     if (filter?.unassigned) jobs = jobs.filter((j) => !j.assignedSubId);

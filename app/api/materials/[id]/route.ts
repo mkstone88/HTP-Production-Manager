@@ -3,10 +3,16 @@ import { z } from "zod";
 
 import { errorResponse } from "@/lib/airtable/errors";
 import { MaterialsRepo } from "@/lib/airtable/materials";
+import { AirtableRecordId } from "@/lib/airtable/types";
+import { requireActiveUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ id: string }> };
+
+function invalidId() {
+  return NextResponse.json({ error: "Invalid record id" }, { status: 400 });
+}
 
 const DateOnly = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
@@ -19,7 +25,7 @@ const PatchBody = z.object({
   invoiceDate: DateOnly.nullable().optional(),
   invoiceNumber: z.string().nullable().optional(),
   po: z.string().nullable().optional(),
-  projectId: z.string().nullable().optional(),
+  projectId: AirtableRecordId.nullable().optional(),
   invoiceTotal: z.number().nullable().optional(),
   gallons: z.number().nullable().optional(),
   totalSupplies: z.number().nullable().optional(),
@@ -28,6 +34,7 @@ const PatchBody = z.object({
 
 export async function PATCH(req: Request, { params }: Ctx) {
   const { id } = await params;
+  if (!AirtableRecordId.safeParse(id).success) return invalidId();
   let body: z.infer<typeof PatchBody>;
   try {
     body = PatchBody.parse(await req.json());
@@ -35,6 +42,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
     return errorResponse(err);
   }
   try {
+    await requireActiveUser();
     const invoice = await MaterialsRepo.update(id, body);
     return NextResponse.json({ invoice });
   } catch (err) {
@@ -44,7 +52,9 @@ export async function PATCH(req: Request, { params }: Ctx) {
 
 export async function DELETE(_req: Request, { params }: Ctx) {
   const { id } = await params;
+  if (!AirtableRecordId.safeParse(id).success) return invalidId();
   try {
+    await requireActiveUser();
     await MaterialsRepo.delete(id);
     return NextResponse.json({ ok: true });
   } catch (err) {

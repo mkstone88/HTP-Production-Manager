@@ -1,9 +1,11 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { Mail, Phone } from "lucide-react";
 
 import { SubForm } from "@/components/subs/sub-form";
 import type { Sub } from "@/lib/airtable/types";
+import { mailtoHref, telHref } from "@/lib/contact-links";
 
 async function fetchSub(id: string): Promise<Sub> {
   const res = await fetch(`/api/subs/${id}`, { cache: "no-store" });
@@ -24,6 +26,28 @@ export function SubDetail({ id }: { id: string }) {
         <h1 className="text-lg font-semibold">
           {data?.name ?? (isLoading ? "Loading…" : "Subcontractor")}
         </h1>
+        {(data?.phone || data?.email) && (
+          <div className="mt-1.5 flex flex-wrap gap-2">
+            {data.phone && (
+              <a
+                href={telHref(data.phone)}
+                className="inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
+              >
+                <Phone className="size-3.5" />
+                {data.phone}
+              </a>
+            )}
+            {data.email && (
+              <a
+                href={mailtoHref(data.email)}
+                className="inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
+              >
+                <Mail className="size-3.5" />
+                {data.email}
+              </a>
+            )}
+          </div>
+        )}
       </div>
       {isLoading && (
         <div className="p-4 text-sm text-muted-foreground">Loading…</div>

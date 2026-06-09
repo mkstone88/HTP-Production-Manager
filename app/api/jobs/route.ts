@@ -5,6 +5,7 @@ import { ContactsRepo } from "@/lib/airtable/contacts";
 import { errorResponse } from "@/lib/airtable/errors";
 import { JobsRepo } from "@/lib/airtable/jobs";
 import { JobStatus, ProjectType } from "@/lib/airtable/types";
+import { requireActiveUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -77,6 +78,7 @@ export async function POST(req: Request) {
     return errorResponse(err);
   }
   try {
+    await requireActiveUser();
     let customerId = body.customerId;
     if (!customerId && body.newContact) {
       const contact = await ContactsRepo.create({

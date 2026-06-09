@@ -14,6 +14,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { JobQuickEdit } from "@/components/jobs/job-quick-edit";
 import type { Job, Sub } from "@/lib/airtable/types";
+import { computeStaging } from "@/lib/jobs/staging";
 import { cn } from "@/lib/utils";
 
 import type { TriageJob } from "@/app/api/jobs/triage/route";
@@ -54,6 +55,7 @@ async function patchJob(id: string, patch: JobPatch): Promise<Job> {
 export function JobsTriage() {
   const qc = useQueryClient();
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const triage = useQuery({ queryKey: ["jobs", "triage"], queryFn: fetchTriage });
   const subs = useQuery({ queryKey: ["subs", "active"], queryFn: fetchSubs });
@@ -67,7 +69,7 @@ export function JobsTriage() {
       qc.setQueryData<TriageJob[]>(["jobs", "triage"], (old) =>
         (old ?? []).map((j) => {
           if (j.id !== id) return j;
-          const next: TriageJob = {
+          const merged: TriageJob = {
             ...j,
             ...(patch.emailSent !== undefined && { emailSent: patch.emailSent }),
             ...(patch.customerReplied !== undefined && {
@@ -82,29 +84,19 @@ export function JobsTriage() {
             ...(patch.assignedSubId !== undefined && {
               assignedSubId: patch.assignedSubId ?? undefined,
             }),
-            staging: {
-              ...j.staging,
-              emailSent: patch.emailSent ?? j.staging.emailSent,
-              customerReplied:
-                patch.customerReplied ?? j.staging.customerReplied,
-              colorsReceived:
-                patch.colorsReceived ?? j.staging.colorsReceived,
-              workOrderReady:
-                patch.workOrderReady ?? j.staging.workOrderReady,
-              crewAssigned:
-                patch.assignedSubId !== undefined
-                  ? Boolean(patch.assignedSubId)
-                  : j.staging.crewAssigned,
-            },
           };
-          return next;
+          // Re-derive done/ready/needsAttention so the count chip doesn't go
+          // stale while the refetch is in flight.
+          return { ...merged, staging: computeStaging(merged) };
         }),
       );
       return { prev };
     },
-    onError: (_err, _vars, ctx) => {
+    onError: (err, _vars, ctx) => {
       if (ctx?.prev) qc.setQueryData(["jobs", "triage"], ctx.prev);
+      setError(err instanceof Error ? err.message : "Update failed");
     },
+    onSuccess: () => setError(null),
     onSettled: () => {
       qc.invalidateQueries({ queryKey: ["jobs", "triage"] });
       qc.invalidateQueries({ queryKey: ["jobs"] });
@@ -149,6 +141,11 @@ export function JobsTriage() {
 
   return (
     <>
+      {error && (
+        <div className="m-4 mb-0 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+          {error}
+        </div>
+      )}
       {working.length > 0 ? (
         <ul className="divide-y">{working.map((j) => renderRow(j))}</ul>
       ) : (

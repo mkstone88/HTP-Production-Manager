@@ -1,5 +1,20 @@
 import type { Job } from "@/lib/airtable/types";
 
+/** Hometown Painting operates out of Oklahoma City. */
+export const BUSINESS_TIME_ZONE = "America/Chicago";
+
+/**
+ * Today's date (YYYY-MM-DD) in the business time zone. `new Date()
+ * .toISOString()` is UTC, which is already "tomorrow" during OKC evenings and
+ * skews daysUntilStart / overdue badges by a day.
+ */
+export function todayInBusinessTz(): string {
+  // en-CA formats as YYYY-MM-DD.
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: BUSINESS_TIME_ZONE,
+  }).format(new Date());
+}
+
 /**
  * Per-job staging readiness for the Triage tab.
  *
@@ -63,7 +78,7 @@ function daysBetween(fromIso: string, toIso: string): number {
 export function computeStaging(
   job: Job,
   opts: { today: string; attentionWithinDays?: number } = {
-    today: new Date().toISOString().slice(0, 10),
+    today: todayInBusinessTz(),
   },
 ): StagingSummary {
   const flags: StagingFlags = {

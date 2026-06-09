@@ -74,8 +74,10 @@ export function ScheduleView() {
 
   const [subFilter, setSubFilter] = useState<string>("");
   const [showCompleted, setShowCompleted] = useState(true);
-  const [drawerOpenState, setDrawerOpenState] = useState(false);
-  const drawerOpen = drawerOpenState || Boolean(focusJobId);
+  // null = untouched, so a ?focus= deep link starts the drawer open but the
+  // user (or scheduling the job) can still close it afterwards.
+  const [drawerOpenState, setDrawerOpenState] = useState<boolean | null>(null);
+  const drawerOpen = drawerOpenState ?? Boolean(focusJobId);
   const [editingJobId, setEditingJobId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -136,7 +138,11 @@ export function ScheduleView() {
   // Scroll the focused job into view once it's actually rendered.
   useEffect(() => {
     if (!focusJobId) return;
-    const el = document.querySelector(`[data-job-id="${focusJobId}"]`);
+    // CSS.escape: the id comes from the URL, so quotes/brackets in a crafted
+    // link must not turn into a querySelector syntax error.
+    const el = document.querySelector(
+      `[data-job-id="${CSS.escape(focusJobId)}"]`,
+    );
     el?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [focusJobId, jobsQuery.data]);
 
@@ -259,7 +265,7 @@ export function ScheduleView() {
           {/* Drawer handle (mobile only) */}
           <button
             type="button"
-            onClick={() => setDrawerOpenState((v) => !v)}
+            onClick={() => setDrawerOpenState(!drawerOpen)}
             className={cn(
               "flex w-full items-center justify-between gap-2 px-4 py-3 text-sm font-semibold lg:hidden",
               "active:bg-muted/60 transition-colors",

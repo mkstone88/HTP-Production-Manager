@@ -1,11 +1,12 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
+import { Phone, Plus } from "lucide-react";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import type { Sub } from "@/lib/airtable/types";
+import { telHref } from "@/lib/contact-links";
 import { subColor } from "@/lib/sub-color";
 import { cn } from "@/lib/utils";
 
@@ -50,10 +51,10 @@ export function SubsList() {
 
       <ul className="divide-y">
         {(data ?? []).map((s) => (
-          <li key={s.id}>
+          <li key={s.id} className="flex items-stretch">
             <Link
               href={`/subs/${s.id}`}
-              className="flex min-h-14 items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/40 active:bg-muted"
+              className="flex min-h-14 min-w-0 flex-1 items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/40 active:bg-muted"
             >
               <span
                 aria-hidden
@@ -82,6 +83,15 @@ export function SubsList() {
                 </span>
               )}
             </Link>
+            {s.phone && (
+              <a
+                href={telHref(s.phone)}
+                aria-label={`Call ${s.name}`}
+                className="flex items-center px-4 text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground active:bg-muted"
+              >
+                <Phone className="size-4" />
+              </a>
+            )}
           </li>
         ))}
       </ul>

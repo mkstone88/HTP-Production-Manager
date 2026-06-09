@@ -4,6 +4,7 @@ import { z } from "zod";
 import { errorResponse } from "@/lib/airtable/errors";
 import { SubsRepo } from "@/lib/airtable/subs";
 import { HexColor, SubStatus } from "@/lib/airtable/types";
+import { requireActiveUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +36,7 @@ const CreateBody = z.object({
   name: z.string().min(1),
   contactName: z.string().optional(),
   phone: z.string().optional(),
-  email: z.string().optional(),
+  email: z.string().email().optional().or(z.literal("")),
   status: SubStatus.optional(),
   color: HexColor.optional(),
   notes: z.string().optional(),
@@ -49,6 +50,7 @@ export async function POST(req: Request) {
     return errorResponse(err);
   }
   try {
+    await requireActiveUser();
     const sub = await SubsRepo.create(body);
     return NextResponse.json({ sub }, { status: 201 });
   } catch (err) {
