@@ -19,6 +19,12 @@ function firstLinkId(v: unknown): string | undefined {
   return Array.isArray(v) && v.length > 0 ? String(v[0]) : undefined;
 }
 
+function optNumber(v: unknown): number | undefined {
+  if (v === undefined || v === null || v === "") return undefined;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : undefined;
+}
+
 function fromRecord(rec: AirtableRecord<JobAirtableFields>): Job {
   const f = rec.fields;
   return {
@@ -39,6 +45,15 @@ function fromRecord(rec: AirtableRecord<JobAirtableFields>): Job {
     colorsReceived: Boolean(f[jobFields.colorsReceived]),
     workOrderUrl: firstString(f[jobFields.workOrderUrl]),
     workOrderReady: Boolean(f[jobFields.workOrderReady]),
+    projectAmount: optNumber(f[jobFields.projectAmount]),
+    subPayout: optNumber(f[jobFields.subPayout]),
+    totalMaterialsExpense: optNumber(f[jobFields.totalMaterialsExpense]),
+    grossProfit: optNumber(f[jobFields.grossProfit]),
+    grossProfitPct: optNumber(f[jobFields.grossProfitPct]),
+    totalCogs: optNumber(f[jobFields.totalCogs]),
+    laborOverage: optNumber(f[jobFields.laborOverage]),
+    materialsOverage: optNumber(f[jobFields.materialsOverage]),
+    jobCostingComplete: Boolean(f[jobFields.jobCostingComplete]),
   };
 }
 
@@ -60,6 +75,9 @@ type JobPatch = Partial<{
   customerReplied: boolean;
   colorsReceived: boolean;
   workOrderReady: boolean;
+  projectAmount: number | null;
+  subPayout: number | null;
+  jobCostingComplete: boolean;
 }>;
 
 function toFields(patch: JobPatch): Record<string, unknown> {
@@ -88,6 +106,12 @@ function toFields(patch: JobPatch): Record<string, unknown> {
     out[jobFields.colorsReceived] = patch.colorsReceived;
   if (patch.workOrderReady !== undefined)
     out[jobFields.workOrderReady] = patch.workOrderReady;
+  if (patch.projectAmount !== undefined)
+    out[jobFields.projectAmount] = patch.projectAmount ?? null;
+  if (patch.subPayout !== undefined)
+    out[jobFields.subPayout] = patch.subPayout ?? null;
+  if (patch.jobCostingComplete !== undefined)
+    out[jobFields.jobCostingComplete] = patch.jobCostingComplete;
   return out;
 }
 
@@ -107,12 +131,19 @@ export const JobsRepo = {
     subId?: string;
     unscheduled?: boolean;
     unassigned?: boolean;
+    /** Completed jobs whose costing isn't finalized yet (the costing worklist). */
+    costingNeeded?: boolean;
+    /** Jobs whose costing is finalized (the dashboard's "already costed" set). */
+    costed?: boolean;
   }): Promise<Job[]> {
     const records = await airtable.listAll<JobAirtableFields>(tables.jobs);
     let jobs = records.map(fromRecord);
     if (filter?.subId) jobs = jobs.filter((j) => j.assignedSubId === filter.subId);
     if (filter?.unassigned) jobs = jobs.filter((j) => !j.assignedSubId);
     if (filter?.unscheduled) jobs = jobs.filter((j) => !j.scheduledStart);
+    if (filter?.costingNeeded)
+      jobs = jobs.filter((j) => j.status === "Completed" && !j.jobCostingComplete);
+    if (filter?.costed) jobs = jobs.filter((j) => j.jobCostingComplete);
     return jobs;
   },
 

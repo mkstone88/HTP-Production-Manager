@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   Calendar,
   ClipboardList,
+  DollarSign,
   LogOut,
   Settings,
   ShieldCheck,
@@ -20,6 +21,7 @@ const NAV = [
   { href: "/schedule", label: "Schedule", icon: Calendar },
   { href: "/jobs", label: "Jobs", icon: ClipboardList },
   { href: "/subs", label: "Subs", icon: Users },
+  { href: "/costing", label: "Costing", icon: DollarSign },
 ] as const;
 
 const ADMIN_NAV = [{ href: "/users", label: "Users", icon: ShieldCheck }] as const;
