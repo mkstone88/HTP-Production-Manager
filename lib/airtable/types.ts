@@ -8,6 +8,7 @@ export const JobStatus = z.enum([
   "Proposal Accepted",
   "Scheduled",
   "In Progress",
+  "On Hold",
   "Completed",
 ]);
 export type JobStatus = z.infer<typeof JobStatus>;
@@ -122,6 +123,27 @@ export const MaterialsExpense = z.object({
   totalPaint: z.number().optional(),
 });
 export type MaterialsExpense = z.infer<typeof MaterialsExpense>;
+
+/**
+ * App login roles.
+ *  - admin: full access, including managing other users.
+ *  - user:  full access to jobs/subs/contacts, but cannot manage users.
+ */
+export const UserRole = z.enum(["admin", "user"]);
+export type UserRole = z.infer<typeof UserRole>;
+
+/**
+ * A login account (Airtable "App Users"). Never carries the password hash —
+ * that stays server-side in the repo layer.
+ */
+export const AppUser = z.object({
+  id: z.string(),
+  name: z.string(),
+  email: z.string(),
+  role: UserRole,
+  active: z.boolean(),
+});
+export type AppUser = z.infer<typeof AppUser>;
 
 export const Contact = z.object({
   id: z.string(),

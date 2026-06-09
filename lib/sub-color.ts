@@ -33,8 +33,10 @@ export function subColor(opts: {
   subId: string | undefined;
   override?: string;
   completed?: boolean;
+  onHold?: boolean;
 }): string {
   if (opts.completed) return "#d4d4d8"; // zinc-300
+  if (opts.onHold) return "#e2e8f0"; // slate-200, muted paused look
   if (!opts.subId) return "#0e3f86"; // brand blue when unassigned
   if (opts.override && /^#[0-9a-fA-F]{6}$/.test(opts.override)) return opts.override;
   return `oklch(0.5 0.16 ${hashedHue(opts.subId)})`;

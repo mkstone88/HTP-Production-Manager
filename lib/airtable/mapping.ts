@@ -12,6 +12,7 @@ export const tables = {
   subs: "Crews",
   contacts: "Contacts",
   materialsExpenses: "Materials Expenses",
+  users: "App Users",
 } as const;
 
 /**
@@ -111,7 +112,21 @@ export const materialsExpenseFields = {
   totalPaint: "Total Paint",     // currency
 } as const;
 
+/**
+ * App login account (= Airtable "App Users" record). This is the app's own
+ * auth table, separate from the business "People" table. `password` stores a
+ * salted PBKDF2-SHA256 hash (see lib/auth.ts) — never a plaintext password.
+ */
+export const userFields = {
+  name: "Name",                  // singleLineText (primary)
+  email: "Email",                // email — login identifier
+  role: "Role",                  // singleSelect: admin | user
+  password: "Password",          // singleLineText — PBKDF2 hash string
+  active: "Active",              // checkbox — disable login without deleting
+} as const;
+
 export type JobFieldKey = keyof typeof jobFields;
 export type SubFieldKey = keyof typeof subFields;
 export type ContactFieldKey = keyof typeof contactFields;
 export type MaterialsExpenseFieldKey = keyof typeof materialsExpenseFields;
+export type UserFieldKey = keyof typeof userFields;

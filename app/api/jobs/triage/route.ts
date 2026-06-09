@@ -10,9 +10,11 @@ export const dynamic = "force-dynamic";
 export type TriageJob = Job & { staging: StagingSummary };
 
 /**
- * Pre-job triage: every job in "Proposal Accepted" status, with the staging
- * checklist computed server-side. Sorted so jobs with start dates come first
- * (closest first), then by name.
+ * Pre-job triage: every job still in the staging pipeline (Proposal Accepted or
+ * Scheduled), with the staging checklist computed server-side. A job leaves
+ * triage only once it advances to In Progress (or Completed / On Hold).
+ *
+ * Sorted so jobs with start dates come first (closest first), then by name.
  *
  * Future agent tool: "what jobs need follow-up before they can start?"
  */
@@ -21,7 +23,9 @@ export async function GET() {
     const today = new Date().toISOString().slice(0, 10);
     const jobs = await JobsRepo.list();
     const triage: TriageJob[] = jobs
-      .filter((j) => j.status === "Proposal Accepted")
+      .filter(
+        (j) => j.status === "Proposal Accepted" || j.status === "Scheduled",
+      )
       .map((j) => ({ ...j, staging: computeStaging(j, { today }) }))
       .sort((a, b) => {
         const ad = a.scheduledStart ?? "";
