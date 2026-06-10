@@ -51,6 +51,7 @@ export const Job = z.object({
   scheduledStart: z.string().optional(),    // YYYY-MM-DD
   scheduledEnd: z.string().optional(),      // YYYY-MM-DD
   assignedSubId: z.string().optional(),
+  estimatedHours: z.number().optional(),    // labor estimate from the estimating software
   notes: z.string().optional(),
   // Pre-job staging flags
   emailSent: z.boolean().optional(),
@@ -114,6 +115,7 @@ export const Sub = z.object({
   notes: z.string().optional(),
   insuranceExpiration: z.string().optional(),   // YYYY-MM-DD
   workersCompExpiration: z.string().optional(), // YYYY-MM-DD
+  weeklyCapacityHours: z.number().optional(),   // blank = assume 40
 });
 export type Sub = z.infer<typeof Sub>;
 

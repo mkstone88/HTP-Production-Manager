@@ -11,6 +11,11 @@ function optString(v: unknown): string | undefined {
   return String(v);
 }
 
+function optNumber(v: unknown): number | undefined {
+  if (typeof v !== "number" || Number.isNaN(v)) return undefined;
+  return v;
+}
+
 function fromRecord(rec: AirtableRecord<SubAirtableFields>): Sub {
   const f = rec.fields;
   return {
@@ -24,6 +29,7 @@ function fromRecord(rec: AirtableRecord<SubAirtableFields>): Sub {
     notes: optString(f[subFields.notes]),
     insuranceExpiration: optString(f[subFields.insuranceExpiration]),
     workersCompExpiration: optString(f[subFields.workersCompExpiration]),
+    weeklyCapacityHours: optNumber(f[subFields.weeklyCapacityHours]),
   };
 }
 
@@ -37,6 +43,7 @@ type SubPatch = Partial<{
   notes: string | null;
   insuranceExpiration: string | null;
   workersCompExpiration: string | null;
+  weeklyCapacityHours: number | null;
 }>;
 
 function toFields(patch: SubPatch): Record<string, unknown> {
@@ -53,6 +60,8 @@ function toFields(patch: SubPatch): Record<string, unknown> {
     out[subFields.insuranceExpiration] = patch.insuranceExpiration ?? null;
   if (patch.workersCompExpiration !== undefined)
     out[subFields.workersCompExpiration] = patch.workersCompExpiration ?? null;
+  if (patch.weeklyCapacityHours !== undefined)
+    out[subFields.weeklyCapacityHours] = patch.weeklyCapacityHours ?? null;
   return out;
 }
 
@@ -66,6 +75,7 @@ export type CreateSubInput = {
   notes?: string;
   insuranceExpiration?: string;
   workersCompExpiration?: string;
+  weeklyCapacityHours?: number;
 };
 
 export const SubsRepo = {

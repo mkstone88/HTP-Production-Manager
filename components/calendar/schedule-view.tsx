@@ -4,7 +4,7 @@ import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin, { Draggable } from "@fullcalendar/interaction";
 import FullCalendar from "@fullcalendar/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, ChevronUp, Plus } from "lucide-react";
+import { AlertTriangle, BarChart3, ChevronUp, CloudRain, Plus } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -16,6 +16,7 @@ import { subColor } from "@/lib/sub-color";
 import { cn } from "@/lib/utils";
 
 import type { CrewConflict } from "@/app/api/jobs/conflicts/route";
+import type { ForecastDay, RainRiskJob } from "@/app/api/weather/route";
 
 type JobsResponse = { jobs: Job[]; error?: string };
 type SubsResponse = { subs: Sub[]; error?: string };
@@ -26,6 +27,28 @@ async function fetchConflicts(): Promise<CrewConflict[]> {
   if (!res.ok || !data.conflicts)
     throw new Error(data.error || "Failed to load conflicts");
   return data.conflicts;
+}
+
+type WeatherResponse = { days: ForecastDay[]; rainRisk: RainRiskJob[] };
+
+async function fetchWeather(): Promise<WeatherResponse> {
+  const res = await fetch("/api/weather", { cache: "no-store" });
+  const data = (await res.json()) as Partial<WeatherResponse> & { error?: string };
+  if (!res.ok || !data.days) throw new Error(data.error || "Failed to load weather");
+  return { days: data.days, rainRisk: data.rainRisk ?? [] };
+}
+
+/** WMO weather code → compact glyph for calendar day cells. */
+function weatherGlyph(code: number): string {
+  if (code === 0) return "☀️";
+  if (code <= 2) return "⛅";
+  if (code === 3) return "☁️";
+  if (code === 45 || code === 48) return "🌫️";
+  if (code >= 51 && code <= 67) return "🌧️";
+  if (code >= 71 && code <= 77) return "❄️";
+  if (code >= 80 && code <= 82) return "🌦️";
+  if (code >= 95) return "⛈️";
+  return "";
 }
 
 async function fetchJobs(): Promise<Job[]> {
@@ -102,6 +125,20 @@ export function ScheduleView() {
     () => conflictsQuery.data ?? [],
     [conflictsQuery.data],
   );
+  // Forecast changes slowly and the server caches the upstream call; a failed
+  // fetch just hides the overlay rather than surfacing an error.
+  const weatherQuery = useQuery({
+    queryKey: ["weather"],
+    queryFn: fetchWeather,
+    staleTime: 15 * 60_000,
+    retry: 0,
+  });
+  const weatherByDate = useMemo(() => {
+    const m = new Map<string, ForecastDay>();
+    for (const d of weatherQuery.data?.days ?? []) m.set(d.date, d);
+    return m;
+  }, [weatherQuery.data]);
+  const rainRisk = weatherQuery.data?.rainRisk ?? [];
   const conflictJobIds = useMemo(() => {
     const s = new Set<string>();
     for (const c of conflicts) {
@@ -231,6 +268,12 @@ export function ScheduleView() {
       <div className="flex flex-wrap items-center gap-2 border-b px-3 py-2 sm:gap-3 sm:px-4 sm:py-3">
         <h1 className="text-lg font-semibold">Schedule</h1>
         <div className="ml-auto flex flex-wrap items-center gap-2">
+          <Link href="/capacity" prefetch>
+            <Button size="sm" variant="outline" className="h-10 px-3 sm:h-9">
+              <BarChart3 className="size-4" />
+              Capacity
+            </Button>
+          </Link>
           <Link href="/jobs/new" prefetch>
             <Button size="sm" className="h-10 px-3 sm:h-9">
               <Plus className="size-4" />
@@ -292,6 +335,32 @@ export function ScheduleView() {
                 <span className="tabular-nums">
                   {c.overlapStart}
                   {c.overlapEnd !== c.overlapStart ? ` → ${c.overlapEnd}` : ""}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+      {rainRisk.length > 0 && (
+        <details className="border-b bg-sky-50 text-sky-900 dark:bg-sky-900/20 dark:text-sky-200">
+          <summary className="flex cursor-pointer items-center gap-2 px-4 py-2 text-sm font-medium">
+            <CloudRain className="size-4 shrink-0" />
+            {rainRisk.length === 1
+              ? "Rain risk on 1 exterior job"
+              : `Rain risk on ${rainRisk.length} exterior jobs`}
+          </summary>
+          <ul className="space-y-1 px-4 pb-3 text-sm">
+            {rainRisk.map((j) => (
+              <li key={j.id}>
+                <span className="font-medium">{j.name}</span>{" "}
+                <span className="opacity-80">
+                  ({j.projectType}) —{" "}
+                  {j.days
+                    .map(
+                      (d) =>
+                        `${d.date.slice(5).replace("-", "/")} ${d.precipProbability}%`,
+                    )
+                    .join(", ")}
                 </span>
               </li>
             ))}
@@ -413,6 +482,26 @@ export function ScheduleView() {
               },
             }}
             height="auto"
+            dayCellContent={(arg) => {
+              const iso = toDateOnly(arg.date);
+              const fc = iso ? weatherByDate.get(iso) : undefined;
+              if (!fc) return arg.dayNumberText;
+              const glyph = weatherGlyph(fc.weatherCode);
+              return (
+                <div className="flex items-center justify-end gap-1">
+                  <span
+                    className="text-[10px] leading-none opacity-80"
+                    title={`${fc.precipProbability}% rain · ${fc.tempMaxF}°/${fc.tempMinF}°`}
+                  >
+                    {glyph}
+                    {fc.precipProbability >= 30
+                      ? ` ${fc.precipProbability}%`
+                      : ""}
+                  </span>
+                  <span>{arg.dayNumberText}</span>
+                </div>
+              );
+            }}
             droppable
             editable
             eventDurationEditable

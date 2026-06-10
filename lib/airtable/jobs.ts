@@ -41,6 +41,7 @@ function fromRecord(rec: AirtableRecord<JobAirtableFields>): Job {
     scheduledStart: firstString(f[jobFields.scheduledStart]),
     scheduledEnd: firstString(f[jobFields.scheduledEnd]),
     assignedSubId: firstLinkId(f[jobFields.assignedSub]),
+    estimatedHours: optNumber(f[jobFields.estimatedHours]),
     notes: firstString(f[jobFields.notes]),
     emailSent: Boolean(f[jobFields.emailSent]),
     customerReplied: Boolean(f[jobFields.customerReplied]),

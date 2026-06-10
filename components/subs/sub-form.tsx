@@ -36,6 +36,9 @@ export function SubForm(props: Props) {
   const [workersCompExpiration, setWorkersCompExpiration] = useState(
     props.initial?.workersCompExpiration ?? "",
   );
+  const [weeklyCapacityHours, setWeeklyCapacityHours] = useState(
+    props.initial?.weeklyCapacityHours?.toString() ?? "",
+  );
   const [error, setError] = useState<string | null>(null);
 
   const save = useMutation({
@@ -52,6 +55,11 @@ export function SubForm(props: Props) {
           insuranceExpiration || (props.mode === "edit" ? null : undefined),
         workersCompExpiration:
           workersCompExpiration || (props.mode === "edit" ? null : undefined),
+        weeklyCapacityHours: weeklyCapacityHours
+          ? Number(weeklyCapacityHours)
+          : props.mode === "edit"
+            ? null
+            : undefined,
       };
       const url = props.mode === "edit" ? `/api/subs/${props.initial.id}` : "/api/subs";
       const method = props.mode === "edit" ? "PATCH" : "POST";
@@ -154,6 +162,20 @@ export function SubForm(props: Props) {
             type="date"
             value={workersCompExpiration}
             onChange={(e) => setWorkersCompExpiration(e.target.value)}
+            className="h-11"
+          />
+        </div>
+        <div className="grid gap-1.5">
+          <Label htmlFor="weeklyCapacityHours">Weekly capacity (hours)</Label>
+          <Input
+            id="weeklyCapacityHours"
+            type="number"
+            inputMode="numeric"
+            min={1}
+            max={200}
+            placeholder="40"
+            value={weeklyCapacityHours}
+            onChange={(e) => setWeeklyCapacityHours(e.target.value)}
             className="h-11"
           />
         </div>

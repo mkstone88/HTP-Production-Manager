@@ -38,6 +38,7 @@ export const jobFields = {
   scheduledStart: "Job Start Date",              // date (no time)
   scheduledEnd: "Job Complete Date",             // date (no time)
   assignedSub: "Crew Leader",                    // linked record -> Crews
+  estimatedHours: "Estimated Hours",             // number — from the estimating software; powers the Capacity view
   notes: "Notes",                                // multilineText
   // Pre-job staging checkboxes (Triage tab):
   emailSent: "Email Sent",                       // checkbox — project email sent to customer
@@ -76,6 +77,7 @@ export const subFields = {
   // Compliance paperwork (date-only fields). Power the expired/expiring warnings.
   insuranceExpiration: "Insurance Expiration",
   workersCompExpiration: "Worker's Comp Expiration",
+  weeklyCapacityHours: "Weekly Capacity Hours", // number — blank = assume 40 (Capacity view)
 } as const;
 
 /**

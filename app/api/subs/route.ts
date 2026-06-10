@@ -43,6 +43,7 @@ const CreateBody = z.object({
   notes: z.string().optional(),
   insuranceExpiration: DateOnly.optional(),
   workersCompExpiration: DateOnly.optional(),
+  weeklyCapacityHours: z.number().int().positive().max(200).optional(),
 });
 
 export async function POST(req: Request) {

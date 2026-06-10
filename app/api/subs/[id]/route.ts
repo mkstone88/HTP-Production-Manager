@@ -42,6 +42,7 @@ const PatchBody = z.object({
   notes: z.string().nullable().optional(),
   insuranceExpiration: DateOnly.nullable().optional(),
   workersCompExpiration: DateOnly.nullable().optional(),
+  weeklyCapacityHours: z.number().int().positive().max(200).nullable().optional(),
 });
 
 export async function PATCH(req: Request, { params }: Ctx) {
