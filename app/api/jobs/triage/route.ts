@@ -3,7 +3,11 @@ import { NextResponse } from "next/server";
 import { errorResponse } from "@/lib/airtable/errors";
 import { JobsRepo } from "@/lib/airtable/jobs";
 import type { Job } from "@/lib/airtable/types";
-import { computeStaging, type StagingSummary } from "@/lib/jobs/staging";
+import {
+  computeStaging,
+  todayInBusinessTz,
+  type StagingSummary,
+} from "@/lib/jobs/staging";
 
 export const dynamic = "force-dynamic";
 
@@ -20,12 +24,11 @@ export type TriageJob = Job & { staging: StagingSummary };
  */
 export async function GET() {
   try {
-    const today = new Date().toISOString().slice(0, 10);
-    const jobs = await JobsRepo.list();
+    const today = todayInBusinessTz();
+    const jobs = await JobsRepo.list({
+      statuses: ["Proposal Accepted", "Scheduled"],
+    });
     const triage: TriageJob[] = jobs
-      .filter(
-        (j) => j.status === "Proposal Accepted" || j.status === "Scheduled",
-      )
       .map((j) => ({ ...j, staging: computeStaging(j, { today }) }))
       .sort((a, b) => {
         const ad = a.scheduledStart ?? "";
@@ -33,6 +36,11 @@ export async function GET() {
         if (ad && bd) return ad.localeCompare(bd);
         if (ad) return -1;
         if (bd) return 1;
+        // Unscheduled jobs: oldest accepted first, so the list reads as a
+        // work queue instead of an alphabetical pile.
+        const aw = a.jobWonDate ?? "";
+        const bw = b.jobWonDate ?? "";
+        if (aw && bw && aw !== bw) return aw.localeCompare(bw);
         return a.name.localeCompare(b.name);
       });
     return NextResponse.json({ jobs: triage });

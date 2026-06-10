@@ -7,13 +7,19 @@ import {
   Check,
   CheckCircle2,
   ChevronDown,
+  Clock,
   Plus,
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 import { JobQuickEdit } from "@/components/jobs/job-quick-edit";
-import type { Job, Sub } from "@/lib/airtable/types";
+import type { Job } from "@/lib/airtable/types";
+import {
+  complianceFlag,
+  type SubWithCompliance,
+} from "@/lib/subs/compliance";
+import { computeStaging } from "@/lib/jobs/staging";
 import { cn } from "@/lib/utils";
 
 import type { TriageJob } from "@/app/api/jobs/triage/route";
@@ -25,9 +31,12 @@ async function fetchTriage(): Promise<TriageJob[]> {
   return data.jobs;
 }
 
-async function fetchSubs(): Promise<Sub[]> {
+async function fetchSubs(): Promise<SubWithCompliance[]> {
   const res = await fetch("/api/subs?activeOnly=true", { cache: "no-store" });
-  const data = (await res.json()) as { subs?: Sub[]; error?: string };
+  const data = (await res.json()) as {
+    subs?: SubWithCompliance[];
+    error?: string;
+  };
   if (!res.ok || !data.subs) throw new Error(data.error || "Failed to load subs");
   return data.subs;
 }
@@ -54,6 +63,7 @@ async function patchJob(id: string, patch: JobPatch): Promise<Job> {
 export function JobsTriage() {
   const qc = useQueryClient();
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const triage = useQuery({ queryKey: ["jobs", "triage"], queryFn: fetchTriage });
   const subs = useQuery({ queryKey: ["subs", "active"], queryFn: fetchSubs });
@@ -67,7 +77,7 @@ export function JobsTriage() {
       qc.setQueryData<TriageJob[]>(["jobs", "triage"], (old) =>
         (old ?? []).map((j) => {
           if (j.id !== id) return j;
-          const next: TriageJob = {
+          const merged: TriageJob = {
             ...j,
             ...(patch.emailSent !== undefined && { emailSent: patch.emailSent }),
             ...(patch.customerReplied !== undefined && {
@@ -82,29 +92,19 @@ export function JobsTriage() {
             ...(patch.assignedSubId !== undefined && {
               assignedSubId: patch.assignedSubId ?? undefined,
             }),
-            staging: {
-              ...j.staging,
-              emailSent: patch.emailSent ?? j.staging.emailSent,
-              customerReplied:
-                patch.customerReplied ?? j.staging.customerReplied,
-              colorsReceived:
-                patch.colorsReceived ?? j.staging.colorsReceived,
-              workOrderReady:
-                patch.workOrderReady ?? j.staging.workOrderReady,
-              crewAssigned:
-                patch.assignedSubId !== undefined
-                  ? Boolean(patch.assignedSubId)
-                  : j.staging.crewAssigned,
-            },
           };
-          return next;
+          // Re-derive done/ready/needsAttention so the count chip doesn't go
+          // stale while the refetch is in flight.
+          return { ...merged, staging: computeStaging(merged) };
         }),
       );
       return { prev };
     },
-    onError: (_err, _vars, ctx) => {
+    onError: (err, _vars, ctx) => {
       if (ctx?.prev) qc.setQueryData(["jobs", "triage"], ctx.prev);
+      setError(err instanceof Error ? err.message : "Update failed");
     },
+    onSuccess: () => setError(null),
     onSettled: () => {
       qc.invalidateQueries({ queryKey: ["jobs", "triage"] });
       qc.invalidateQueries({ queryKey: ["jobs"] });
@@ -149,6 +149,11 @@ export function JobsTriage() {
 
   return (
     <>
+      {error && (
+        <div className="m-4 mb-0 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+          {error}
+        </div>
+      )}
       {working.length > 0 ? (
         <ul className="divide-y">{working.map((j) => renderRow(j))}</ul>
       ) : (
@@ -183,7 +188,7 @@ function TriageRow({
   onOpenDetails,
 }: {
   job: TriageJob;
-  subs: Sub[];
+  subs: SubWithCompliance[];
   muted?: boolean;
   onPatch: (patch: JobPatch) => void;
   onOpenDetails: () => void;
@@ -204,6 +209,20 @@ function TriageRow({
           </div>
         </button>
         <div className="flex shrink-0 items-center gap-2">
+          {job.staging.ageDays !== undefined && !job.staging.ready && (
+            <span
+              title={`Accepted ${job.jobWonDate} — ${job.staging.ageDays} day(s) ago`}
+              className={cn(
+                "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs tabular-nums",
+                job.staging.ageDays >= 14
+                  ? "bg-amber-100 font-medium text-amber-900 dark:bg-amber-900/30 dark:text-amber-200"
+                  : "text-muted-foreground",
+              )}
+            >
+              <Clock className="size-3" />
+              {job.staging.ageDays}d
+            </span>
+          )}
           {job.staging.needsAttention && (
             <span
               className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900 dark:bg-amber-900/30 dark:text-amber-200"
@@ -297,7 +316,7 @@ function CrewPill({
   onAssign,
 }: {
   job: TriageJob;
-  subs: Sub[];
+  subs: SubWithCompliance[];
   onAssign: (subId: string | null) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -370,7 +389,7 @@ function CrewMenu({
   currentId,
   onPick,
 }: {
-  subs: Sub[];
+  subs: SubWithCompliance[];
   currentId?: string;
   onPick: (id: string | null) => void;
 }) {
@@ -401,6 +420,7 @@ function CrewMenu({
             )}
           >
             {s.name}
+            {complianceFlag(s.compliance)}
           </button>
         ))
       )}

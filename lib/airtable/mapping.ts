@@ -33,10 +33,12 @@ export const jobFields = {
   customerName: "Name (from Customer)",          // lookup (read-only)
   address: "Street Address  (from Customer)",    // lookup (read-only) — note: two spaces in name
   status: "Status",                              // singleSelect: Proposal Accepted | Scheduled | In Progress | Completed
+  jobWonDate: "Job Won Date",                    // createdTime (read-only) — when the proposal was accepted; powers triage aging
   projectType: "Project Type",                   // singleSelect
   scheduledStart: "Job Start Date",              // date (no time)
   scheduledEnd: "Job Complete Date",             // date (no time)
   assignedSub: "Crew Leader",                    // linked record -> Crews
+  estimatedHours: "Estimated Hours",             // number — from the estimating software; powers the Capacity view
   notes: "Notes",                                // multilineText
   // Pre-job staging checkboxes (Triage tab):
   emailSent: "Email Sent",                       // checkbox — project email sent to customer
@@ -72,6 +74,10 @@ export const subFields = {
   status: "Status",
   color: "Color",                // singleLineText, hex like #RRGGBB (optional)
   notes: "Notes",
+  // Compliance paperwork (date-only fields). Power the expired/expiring warnings.
+  insuranceExpiration: "Insurance Expiration",
+  workersCompExpiration: "Worker's Comp Expiration",
+  weeklyCapacityHours: "Weekly Capacity Hours", // number — blank = assume 40 (Capacity view)
 } as const;
 
 /**

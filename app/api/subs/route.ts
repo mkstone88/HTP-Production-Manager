@@ -3,7 +3,9 @@ import { z } from "zod";
 
 import { errorResponse } from "@/lib/airtable/errors";
 import { SubsRepo } from "@/lib/airtable/subs";
-import { HexColor, SubStatus } from "@/lib/airtable/types";
+import { DateOnly, HexColor, SubStatus } from "@/lib/airtable/types";
+import { requireActiveUser } from "@/lib/session";
+import { withCompliance } from "@/lib/subs/compliance";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +27,7 @@ export async function GET(req: Request) {
   }
   try {
     const subs = await SubsRepo.list(params.data);
-    return NextResponse.json({ subs });
+    return NextResponse.json({ subs: subs.map((s) => withCompliance(s)) });
   } catch (err) {
     return errorResponse(err);
   }
@@ -35,10 +37,13 @@ const CreateBody = z.object({
   name: z.string().min(1),
   contactName: z.string().optional(),
   phone: z.string().optional(),
-  email: z.string().optional(),
+  email: z.string().email().optional().or(z.literal("")),
   status: SubStatus.optional(),
   color: HexColor.optional(),
   notes: z.string().optional(),
+  insuranceExpiration: DateOnly.optional(),
+  workersCompExpiration: DateOnly.optional(),
+  weeklyCapacityHours: z.number().int().positive().max(200).optional(),
 });
 
 export async function POST(req: Request) {
@@ -49,8 +54,9 @@ export async function POST(req: Request) {
     return errorResponse(err);
   }
   try {
+    await requireActiveUser();
     const sub = await SubsRepo.create(body);
-    return NextResponse.json({ sub }, { status: 201 });
+    return NextResponse.json({ sub: withCompliance(sub) }, { status: 201 });
   } catch (err) {
     return errorResponse(err);
   }

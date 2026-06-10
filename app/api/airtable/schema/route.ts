@@ -5,6 +5,11 @@ import { airtable, AirtableError } from "@/lib/airtable/client";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  // Dev-only introspection helper; the full base schema has no business being
+  // reachable in production.
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
   try {
     const schema = await airtable.listTables();
     return NextResponse.json(schema, {

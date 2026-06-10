@@ -1,14 +1,19 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { PauseCircle, Plus } from "lucide-react";
+import { PauseCircle, Plus, Search } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { JobQuickEdit } from "@/components/jobs/job-quick-edit";
 import { JobsTriage } from "@/components/jobs/jobs-triage";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import type { Job, Sub } from "@/lib/airtable/types";
+import {
+  complianceFlag,
+  type SubWithCompliance,
+} from "@/lib/subs/compliance";
 import { cn } from "@/lib/utils";
 
 type Tab = "triage" | "active" | "completed" | "all";
@@ -20,9 +25,12 @@ async function fetchJobs(): Promise<Job[]> {
   return data.jobs;
 }
 
-async function fetchSubs(): Promise<Sub[]> {
+async function fetchSubs(): Promise<SubWithCompliance[]> {
   const res = await fetch("/api/subs", { cache: "no-store" });
-  const data = (await res.json()) as { subs?: Sub[]; error?: string };
+  const data = (await res.json()) as {
+    subs?: SubWithCompliance[];
+    error?: string;
+  };
   if (!res.ok || !data.subs) throw new Error(data.error || "Failed to load subs");
   return data.subs;
 }
@@ -39,6 +47,7 @@ function sortByStart(a: Job, b: Job): number {
 export function JobsList() {
   const qc = useQueryClient();
   const [tab, setTab] = useState<Tab>("triage");
+  const [search, setSearch] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const jobs = useQuery({ queryKey: ["jobs"], queryFn: fetchJobs });
@@ -63,7 +72,15 @@ export function JobsList() {
    * Other tabs use a single flat list.
    */
   const groups = useMemo(() => {
-    const all = jobs.data ?? [];
+    let all = jobs.data ?? [];
+    const q = search.trim().toLowerCase();
+    if (q) {
+      all = all.filter((j) =>
+        [j.name, j.customerName, j.address, j.jobNumber].some((v) =>
+          v?.toLowerCase().includes(q),
+        ),
+      );
+    }
     if (tab === "completed") {
       return {
         primary: all.filter((j) => j.status === "Completed").sort(sortByStart),
@@ -79,7 +96,7 @@ export function JobsList() {
         .sort(sortByStart),
       onHold: all.filter((j) => j.status === "On Hold").sort(sortByStart),
     };
-  }, [jobs.data, tab]);
+  }, [jobs.data, tab, search]);
 
   const reassign = useMutation({
     mutationFn: ({ id, subId }: { id: string; subId: string | null }) =>
@@ -123,11 +140,13 @@ export function JobsList() {
   const totalShown = groups.primary.length + groups.onHold.length;
   const emptyState =
     !jobs.isLoading && !jobs.error && totalShown === 0
-      ? tab === "active"
-        ? "No active jobs. 🎉"
-        : tab === "completed"
-          ? "No completed jobs yet."
-          : "No jobs yet."
+      ? search.trim()
+        ? `No jobs matching "${search.trim()}".`
+        : tab === "active"
+          ? "No active jobs. 🎉"
+          : tab === "completed"
+            ? "No completed jobs yet."
+            : "No jobs yet."
       : null;
 
   const renderRow = (j: Job, dimmed: boolean) => (
@@ -179,6 +198,22 @@ export function JobsList() {
 
       {tab === "triage" && <JobsTriage />}
 
+      {tab !== "triage" && (
+        <div className="border-b px-3 py-2 sm:px-4">
+          <div className="relative max-w-md">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by customer, address, or job number…"
+              aria-label="Search jobs"
+              className="h-10 pl-9"
+            />
+          </div>
+        </div>
+      )}
+
       {tab !== "triage" && jobs.isLoading && (
         <div className="p-4 text-sm text-muted-foreground">Loading jobs…</div>
       )}
@@ -227,7 +262,7 @@ function JobRow({
 }: {
   job: Job;
   dimmed: boolean;
-  assignableSubs: Sub[];
+  assignableSubs: SubWithCompliance[];
   subsById: Map<string, Sub>;
   onOpen: (id: string) => void;
   onReassign: (id: string, subId: string | null) => void;
@@ -289,6 +324,7 @@ function JobRow({
             {assignableSubs.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name}
+                {complianceFlag(s.compliance)}
               </option>
             ))}
             {j.assignedSubId &&

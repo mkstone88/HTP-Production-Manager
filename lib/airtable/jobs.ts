@@ -35,10 +35,13 @@ function fromRecord(rec: AirtableRecord<JobAirtableFields>): Job {
     customerName: firstString(f[jobFields.customerName]),
     address: firstString(f[jobFields.address]),
     status: firstString(f[jobFields.status]) as JobStatus | undefined,
+    // createdTime comes back as an ISO datetime; keep just the date part.
+    jobWonDate: firstString(f[jobFields.jobWonDate])?.slice(0, 10),
     projectType: firstString(f[jobFields.projectType]) as ProjectType | undefined,
     scheduledStart: firstString(f[jobFields.scheduledStart]),
     scheduledEnd: firstString(f[jobFields.scheduledEnd]),
     assignedSubId: firstLinkId(f[jobFields.assignedSub]),
+    estimatedHours: optNumber(f[jobFields.estimatedHours]),
     notes: firstString(f[jobFields.notes]),
     emailSent: Boolean(f[jobFields.emailSent]),
     customerReplied: Boolean(f[jobFields.customerReplied]),
@@ -131,12 +134,24 @@ export const JobsRepo = {
     subId?: string;
     unscheduled?: boolean;
     unassigned?: boolean;
+    /** Filter server-side on Airtable rather than scanning the whole table. */
+    statuses?: JobStatus[];
     /** Completed jobs whose costing isn't finalized yet (the costing worklist). */
     costingNeeded?: boolean;
     /** Jobs whose costing is finalized (the dashboard's "already costed" set). */
     costed?: boolean;
   }): Promise<Job[]> {
-    const records = await airtable.listAll<JobAirtableFields>(tables.jobs);
+    const records = await airtable.listAll<JobAirtableFields>(
+      tables.jobs,
+      filter?.statuses?.length
+        ? {
+            // Status values come from the JobStatus enum, so no escaping needed.
+            filterByFormula: `OR(${filter.statuses
+              .map((s) => `{${jobFields.status}} = '${s}'`)
+              .join(", ")})`,
+          }
+        : {},
+    );
     let jobs = records.map(fromRecord);
     if (filter?.subId) jobs = jobs.filter((j) => j.assignedSubId === filter.subId);
     if (filter?.unassigned) jobs = jobs.filter((j) => !j.assignedSubId);

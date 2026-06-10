@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Trash2 } from "lucide-react";
+import { ExternalLink, MapPin, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -14,6 +14,7 @@ import {
   type Job,
   type Sub,
 } from "@/lib/airtable/types";
+import { isHttpUrl, mapsHref } from "@/lib/contact-links";
 
 const statuses = JobStatus.options;
 const projectTypes = ProjectType.options;
@@ -124,8 +125,31 @@ export function JobDetail({ id }: { id: string }) {
         </h1>
         {(j.customerName || j.address) && (
           <div className="mt-1 text-sm text-muted-foreground">
-            {[j.customerName, j.address].filter(Boolean).join(" · ")}
+            {j.customerName}
+            {j.customerName && j.address && " · "}
+            {j.address && (
+              <a
+                href={mapsHref(j.address)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 underline underline-offset-2 hover:text-foreground"
+              >
+                <MapPin className="size-3.5" />
+                {j.address}
+              </a>
+            )}
           </div>
+        )}
+        {j.workOrderUrl && isHttpUrl(j.workOrderUrl) && (
+          <a
+            href={j.workOrderUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-2 inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm font-medium transition-colors hover:bg-muted/60 active:bg-muted"
+          >
+            Open work order
+            <ExternalLink className="size-3.5" />
+          </a>
         )}
       </div>
 

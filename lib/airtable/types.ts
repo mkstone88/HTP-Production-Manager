@@ -29,6 +29,15 @@ export type ProjectType = z.infer<typeof ProjectType>;
  */
 export const DateOnly = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Expected YYYY-MM-DD");
 
+/**
+ * Airtable record ID ("rec" + 14 alphanumerics, e.g. "recAbC123dEf456gH").
+ * Validated on route params so arbitrary strings never reach the Airtable
+ * request path.
+ */
+export const AirtableRecordId = z
+  .string()
+  .regex(/^rec[a-zA-Z0-9]{14,17}$/, "Expected an Airtable record id");
+
 export const Job = z.object({
   id: z.string(),
   name: z.string(),                         // formula on Airtable, read-only
@@ -37,10 +46,12 @@ export const Job = z.object({
   customerName: z.string().optional(),      // looked up via the customer link
   address: z.string().optional(),           // looked up via the customer link
   status: JobStatus.optional(),
+  jobWonDate: z.string().optional(),        // YYYY-MM-DD — proposal accepted / record created (read-only)
   projectType: ProjectType.optional(),
   scheduledStart: z.string().optional(),    // YYYY-MM-DD
   scheduledEnd: z.string().optional(),      // YYYY-MM-DD
   assignedSubId: z.string().optional(),
+  estimatedHours: z.number().optional(),    // labor estimate from the estimating software
   notes: z.string().optional(),
   // Pre-job staging flags
   emailSent: z.boolean().optional(),
@@ -102,6 +113,9 @@ export const Sub = z.object({
   status: SubStatus.optional(),
   color: z.string().optional(),             // hex (#RRGGBB) or empty
   notes: z.string().optional(),
+  insuranceExpiration: z.string().optional(),   // YYYY-MM-DD
+  workersCompExpiration: z.string().optional(), // YYYY-MM-DD
+  weeklyCapacityHours: z.number().optional(),   // blank = assume 40
 });
 export type Sub = z.infer<typeof Sub>;
 

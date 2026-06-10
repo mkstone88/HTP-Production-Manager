@@ -9,10 +9,20 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+/**
+ * Only follow same-origin path redirects. Anything absolute ("https://…") or
+ * protocol-relative ("//…") could send a freshly logged-in user to an
+ * attacker's page.
+ */
+function safeRedirect(from: string | null): string {
+  if (from && from.startsWith("/") && !from.startsWith("//")) return from;
+  return "/schedule";
+}
+
 export function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
-  const from = params.get("from") || "/schedule";
+  const from = safeRedirect(params.get("from"));
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -36,6 +46,8 @@ export function LoginForm() {
       }
       router.replace(from);
       router.refresh();
+    } catch {
+      setError("Network error — check your connection and try again.");
     } finally {
       setSubmitting(false);
     }

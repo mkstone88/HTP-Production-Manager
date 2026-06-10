@@ -11,6 +11,11 @@ function optString(v: unknown): string | undefined {
   return String(v);
 }
 
+function optNumber(v: unknown): number | undefined {
+  if (typeof v !== "number" || Number.isNaN(v)) return undefined;
+  return v;
+}
+
 function fromRecord(rec: AirtableRecord<SubAirtableFields>): Sub {
   const f = rec.fields;
   return {
@@ -22,6 +27,9 @@ function fromRecord(rec: AirtableRecord<SubAirtableFields>): Sub {
     status: optString(f[subFields.status]) as SubStatus | undefined,
     color: optString(f[subFields.color]),
     notes: optString(f[subFields.notes]),
+    insuranceExpiration: optString(f[subFields.insuranceExpiration]),
+    workersCompExpiration: optString(f[subFields.workersCompExpiration]),
+    weeklyCapacityHours: optNumber(f[subFields.weeklyCapacityHours]),
   };
 }
 
@@ -33,6 +41,9 @@ type SubPatch = Partial<{
   status: SubStatus | null;
   color: string | null;
   notes: string | null;
+  insuranceExpiration: string | null;
+  workersCompExpiration: string | null;
+  weeklyCapacityHours: number | null;
 }>;
 
 function toFields(patch: SubPatch): Record<string, unknown> {
@@ -45,6 +56,12 @@ function toFields(patch: SubPatch): Record<string, unknown> {
   if (patch.status !== undefined) out[subFields.status] = patch.status ?? null;
   if (patch.color !== undefined) out[subFields.color] = patch.color ?? "";
   if (patch.notes !== undefined) out[subFields.notes] = patch.notes ?? "";
+  if (patch.insuranceExpiration !== undefined)
+    out[subFields.insuranceExpiration] = patch.insuranceExpiration ?? null;
+  if (patch.workersCompExpiration !== undefined)
+    out[subFields.workersCompExpiration] = patch.workersCompExpiration ?? null;
+  if (patch.weeklyCapacityHours !== undefined)
+    out[subFields.weeklyCapacityHours] = patch.weeklyCapacityHours ?? null;
   return out;
 }
 
@@ -56,6 +73,9 @@ export type CreateSubInput = {
   status?: SubStatus;
   color?: string;
   notes?: string;
+  insuranceExpiration?: string;
+  workersCompExpiration?: string;
+  weeklyCapacityHours?: number;
 };
 
 export const SubsRepo = {

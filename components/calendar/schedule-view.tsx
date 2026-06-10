@@ -4,7 +4,7 @@ import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin, { Draggable } from "@fullcalendar/interaction";
 import FullCalendar from "@fullcalendar/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronUp, Plus } from "lucide-react";
+import { AlertTriangle, BarChart3, ChevronUp, CloudRain, Plus } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -15,8 +15,41 @@ import type { Job, Sub } from "@/lib/airtable/types";
 import { subColor } from "@/lib/sub-color";
 import { cn } from "@/lib/utils";
 
+import type { CrewConflict } from "@/app/api/jobs/conflicts/route";
+import type { ForecastDay, RainRiskJob } from "@/app/api/weather/route";
+
 type JobsResponse = { jobs: Job[]; error?: string };
 type SubsResponse = { subs: Sub[]; error?: string };
+
+async function fetchConflicts(): Promise<CrewConflict[]> {
+  const res = await fetch("/api/jobs/conflicts", { cache: "no-store" });
+  const data = (await res.json()) as { conflicts?: CrewConflict[]; error?: string };
+  if (!res.ok || !data.conflicts)
+    throw new Error(data.error || "Failed to load conflicts");
+  return data.conflicts;
+}
+
+type WeatherResponse = { days: ForecastDay[]; rainRisk: RainRiskJob[] };
+
+async function fetchWeather(): Promise<WeatherResponse> {
+  const res = await fetch("/api/weather", { cache: "no-store" });
+  const data = (await res.json()) as Partial<WeatherResponse> & { error?: string };
+  if (!res.ok || !data.days) throw new Error(data.error || "Failed to load weather");
+  return { days: data.days, rainRisk: data.rainRisk ?? [] };
+}
+
+/** WMO weather code → compact glyph for calendar day cells. */
+function weatherGlyph(code: number): string {
+  if (code === 0) return "☀️";
+  if (code <= 2) return "⛅";
+  if (code === 3) return "☁️";
+  if (code === 45 || code === 48) return "🌫️";
+  if (code >= 51 && code <= 67) return "🌧️";
+  if (code >= 71 && code <= 77) return "❄️";
+  if (code >= 80 && code <= 82) return "🌦️";
+  if (code >= 95) return "⛈️";
+  return "";
+}
 
 async function fetchJobs(): Promise<Job[]> {
   const res = await fetch("/api/jobs", { cache: "no-store" });
@@ -74,12 +107,46 @@ export function ScheduleView() {
 
   const [subFilter, setSubFilter] = useState<string>("");
   const [showCompleted, setShowCompleted] = useState(true);
-  const [drawerOpenState, setDrawerOpenState] = useState(false);
-  const drawerOpen = drawerOpenState || Boolean(focusJobId);
+  // null = untouched, so a ?focus= deep link starts the drawer open but the
+  // user (or scheduling the job) can still close it afterwards.
+  const [drawerOpenState, setDrawerOpenState] = useState<boolean | null>(null);
+  const drawerOpen = drawerOpenState ?? Boolean(focusJobId);
   const [editingJobId, setEditingJobId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const jobsQuery = useQuery({ queryKey: ["jobs"], queryFn: fetchJobs });
+  // Invalidated together with ["jobs"] (prefix match), so it refreshes after
+  // every drag/drop/resize/reassignment.
+  const conflictsQuery = useQuery({
+    queryKey: ["jobs", "conflicts"],
+    queryFn: fetchConflicts,
+  });
+  const conflicts = useMemo(
+    () => conflictsQuery.data ?? [],
+    [conflictsQuery.data],
+  );
+  // Forecast changes slowly and the server caches the upstream call; a failed
+  // fetch just hides the overlay rather than surfacing an error.
+  const weatherQuery = useQuery({
+    queryKey: ["weather"],
+    queryFn: fetchWeather,
+    staleTime: 15 * 60_000,
+    retry: 0,
+  });
+  const weatherByDate = useMemo(() => {
+    const m = new Map<string, ForecastDay>();
+    for (const d of weatherQuery.data?.days ?? []) m.set(d.date, d);
+    return m;
+  }, [weatherQuery.data]);
+  const rainRisk = weatherQuery.data?.rainRisk ?? [];
+  const conflictJobIds = useMemo(() => {
+    const s = new Set<string>();
+    for (const c of conflicts) {
+      s.add(c.jobs[0].id);
+      s.add(c.jobs[1].id);
+    }
+    return s;
+  }, [conflicts]);
   const subsQuery = useQuery({ queryKey: ["subs", "active"], queryFn: fetchSubs });
 
   const subsById = useMemo(() => {
@@ -136,7 +203,11 @@ export function ScheduleView() {
   // Scroll the focused job into view once it's actually rendered.
   useEffect(() => {
     if (!focusJobId) return;
-    const el = document.querySelector(`[data-job-id="${focusJobId}"]`);
+    // CSS.escape: the id comes from the URL, so quotes/brackets in a crafted
+    // link must not turn into a querySelector syntax error.
+    const el = document.querySelector(
+      `[data-job-id="${CSS.escape(focusJobId)}"]`,
+    );
     el?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [focusJobId, jobsQuery.data]);
 
@@ -197,6 +268,12 @@ export function ScheduleView() {
       <div className="flex flex-wrap items-center gap-2 border-b px-3 py-2 sm:gap-3 sm:px-4 sm:py-3">
         <h1 className="text-lg font-semibold">Schedule</h1>
         <div className="ml-auto flex flex-wrap items-center gap-2">
+          <Link href="/capacity" prefetch>
+            <Button size="sm" variant="outline" className="h-10 px-3 sm:h-9">
+              <BarChart3 className="size-4" />
+              Capacity
+            </Button>
+          </Link>
           <Link href="/jobs/new" prefetch>
             <Button size="sm" className="h-10 px-3 sm:h-9">
               <Plus className="size-4" />
@@ -242,6 +319,54 @@ export function ScheduleView() {
           {error}
         </div>
       )}
+      {conflicts.length > 0 && (
+        <details className="border-b bg-amber-50 text-amber-900 dark:bg-amber-900/20 dark:text-amber-200">
+          <summary className="flex cursor-pointer items-center gap-2 px-4 py-2 text-sm font-medium">
+            <AlertTriangle className="size-4 shrink-0" />
+            {conflicts.length === 1
+              ? "1 crew overlap — worth a double-check"
+              : `${conflicts.length} crew overlaps — worth a double-check`}
+          </summary>
+          <ul className="space-y-1 px-4 pb-3 text-sm">
+            {conflicts.map((c, i) => (
+              <li key={`${c.subId}-${i}`}>
+                <span className="font-medium">{c.subName}</span>:{" "}
+                {c.jobs[0].name} & {c.jobs[1].name} overlap{" "}
+                <span className="tabular-nums">
+                  {c.overlapStart}
+                  {c.overlapEnd !== c.overlapStart ? ` → ${c.overlapEnd}` : ""}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+      {rainRisk.length > 0 && (
+        <details className="border-b bg-sky-50 text-sky-900 dark:bg-sky-900/20 dark:text-sky-200">
+          <summary className="flex cursor-pointer items-center gap-2 px-4 py-2 text-sm font-medium">
+            <CloudRain className="size-4 shrink-0" />
+            {rainRisk.length === 1
+              ? "Rain risk on 1 exterior job"
+              : `Rain risk on ${rainRisk.length} exterior jobs`}
+          </summary>
+          <ul className="space-y-1 px-4 pb-3 text-sm">
+            {rainRisk.map((j) => (
+              <li key={j.id}>
+                <span className="font-medium">{j.name}</span>{" "}
+                <span className="opacity-80">
+                  ({j.projectType}) —{" "}
+                  {j.days
+                    .map(
+                      (d) =>
+                        `${d.date.slice(5).replace("-", "/")} ${d.precipProbability}%`,
+                    )
+                    .join(", ")}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
 
       <div className="relative flex flex-1 flex-col lg:flex-row">
         {/* Desktop: persistent sidebar. Mobile: bottom drawer with peek. */}
@@ -259,7 +384,7 @@ export function ScheduleView() {
           {/* Drawer handle (mobile only) */}
           <button
             type="button"
-            onClick={() => setDrawerOpenState((v) => !v)}
+            onClick={() => setDrawerOpenState(!drawerOpen)}
             className={cn(
               "flex w-full items-center justify-between gap-2 px-4 py-3 text-sm font-semibold lg:hidden",
               "active:bg-muted/60 transition-colors",
@@ -357,6 +482,26 @@ export function ScheduleView() {
               },
             }}
             height="auto"
+            dayCellContent={(arg) => {
+              const iso = toDateOnly(arg.date);
+              const fc = iso ? weatherByDate.get(iso) : undefined;
+              if (!fc) return arg.dayNumberText;
+              const glyph = weatherGlyph(fc.weatherCode);
+              return (
+                <div className="flex items-center justify-end gap-1">
+                  <span
+                    className="text-[10px] leading-none opacity-80"
+                    title={`${fc.precipProbability}% rain · ${fc.tempMaxF}°/${fc.tempMinF}°`}
+                  >
+                    {glyph}
+                    {fc.precipProbability >= 30
+                      ? ` ${fc.precipProbability}%`
+                      : ""}
+                  </span>
+                  <span>{arg.dayNumberText}</span>
+                </div>
+              );
+            }}
             droppable
             editable
             eventDurationEditable
@@ -373,20 +518,29 @@ export function ScheduleView() {
                 status?: string;
               };
               const sub = props.subId ? subsById.get(props.subId) : null;
+              const hasConflict = Boolean(
+                props.jobId && conflictJobIds.has(props.jobId),
+              );
               const isWeek = info.view.type === "dayGridWeek";
               if (!isWeek) {
                 // Month view: compact one-liner so we can fit several per cell.
                 return (
-                  <div className="overflow-hidden truncate px-1 leading-tight">
-                    <span className="font-medium">{info.event.title}</span>
+                  <div className="flex items-center gap-1 overflow-hidden truncate px-1 leading-tight">
+                    {hasConflict && (
+                      <AlertTriangle className="size-3 shrink-0 text-amber-300" />
+                    )}
+                    <span className="truncate font-medium">{info.event.title}</span>
                   </div>
                 );
               }
               // Week view: roomier card with crew + status.
               return (
                 <div className="flex flex-col gap-0.5 overflow-hidden px-1.5 py-1 leading-tight">
-                  <div className="truncate text-[12px] font-semibold">
-                    {info.event.title}
+                  <div className="flex items-center gap-1 truncate text-[12px] font-semibold">
+                    {hasConflict && (
+                      <AlertTriangle className="size-3 shrink-0 text-amber-300" />
+                    )}
+                    <span className="truncate">{info.event.title}</span>
                   </div>
                   {props.customerName && (
                     <div className="truncate text-[11px] opacity-90">

@@ -5,7 +5,7 @@ import { errorResponse } from "@/lib/airtable/errors";
 import { UsersRepo } from "@/lib/airtable/users";
 import { UserRole, type AppUser } from "@/lib/airtable/types";
 import { hashPassword } from "@/lib/auth";
-import { requireAdmin } from "@/lib/session";
+import { invalidateUserCache, requireAdmin } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -73,6 +73,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
       active: body.active,
       passwordHash: body.password ? await hashPassword(body.password) : undefined,
     });
+    invalidateUserCache(id);
     return NextResponse.json({ user });
   } catch (err) {
     return errorResponse(err);
@@ -97,6 +98,7 @@ export async function DELETE(_req: Request, { params }: Ctx) {
       );
     }
     await UsersRepo.delete(id);
+    invalidateUserCache(id);
     return NextResponse.json({ ok: true });
   } catch (err) {
     return errorResponse(err);

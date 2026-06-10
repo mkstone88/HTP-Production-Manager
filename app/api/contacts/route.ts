@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { ContactsRepo } from "@/lib/airtable/contacts";
 import { errorResponse } from "@/lib/airtable/errors";
+import { requireActiveUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -47,6 +48,7 @@ export async function POST(req: Request) {
     return errorResponse(err);
   }
   try {
+    await requireActiveUser();
     const contact = await ContactsRepo.create({
       ...body,
       email: body.email || undefined,
