@@ -32,7 +32,7 @@ export const jobFields = {
   customer: "Customer",                          // linked record -> Contacts
   customerName: "Name (from Customer)",          // lookup (read-only)
   address: "Street Address  (from Customer)",    // lookup (read-only) — note: two spaces in name
-  status: "Status",                              // singleSelect: Proposal Accepted | Scheduled | In Progress | Completed
+  status: "Status",                              // singleSelect: Proposal Accepted | Scheduled | In Progress | Completed | On Hold
   projectType: "Project Type",                   // singleSelect
   scheduledStart: "Job Start Date",              // date (no time)
   scheduledEnd: "Job Complete Date",             // date (no time)
