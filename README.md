@@ -21,6 +21,7 @@ columns are renamed.
 | Job            | `Projects`     |
 | Subcontractor  | `Crews`        |
 | Contact        | `Contacts`     |
+| Login account  | `App Users`    |
 
 Notes:
 
@@ -58,7 +59,6 @@ Fill in:
 
 - `AIRTABLE_PAT` — token from step 2
 - `AIRTABLE_BASE_ID` — `appNPi0v8wFD4Peq0` (Hometown Operations)
-- `ADMIN_PASSCODE` — shared passcode for the team
 - `AUTH_SECRET` — random 32+ char string. Generate with:
   ```bash
   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
@@ -70,7 +70,25 @@ Fill in:
 npm run dev
 ```
 
-Visit <http://localhost:3000> → redirected to `/login`. Enter your passcode.
+Visit <http://localhost:3000> → redirected to `/login`. Sign in with your
+work email and password.
+
+## Accounts & roles
+
+Login accounts live in the **App Users** Airtable table — one row per person,
+with an `email`, a `Role` (`admin` or `user`), an `Active` checkbox, and a
+salted PBKDF2 password hash (never plaintext). Sessions are signed cookies
+carrying the user id + role.
+
+- **admin** — full access, including the **Users** screen (`/users`) to add,
+  edit, deactivate, reset passwords for, and delete accounts.
+- **user** — full access to jobs, schedule, subs, and contacts, but cannot see
+  or manage other users.
+
+Anyone signed in can change their own password under **Account** (`/account`).
+Guardrails prevent deleting your own account or removing the last active admin.
+Auth lives in `lib/auth.ts` (sessions + hashing), `lib/session.ts` (route/RSC
+guards: `requireUser` / `requireAdmin`), and `proxy.ts` (route gating).
 
 ## Schedule view
 
@@ -102,9 +120,14 @@ app/
     schedule/                  # calendar + unscheduled drawer
     jobs/                      # list + create + detail/edit
     subs/                      # subcontractor CRUD
+    users/                     # admin-only: manage login accounts
+    account/                   # change your own password
   api/
     airtable/schema/           # GET — schema introspection
-    auth/{login,logout}/       # passcode auth
+    auth/{login,logout,me}/    # email+password auth; me = current user
+    account/password/          # POST — change own password
+    users/                     # GET / POST (admin only)
+    users/[id]/                # GET / PATCH / DELETE (admin only)
     contacts/                  # GET (search) / POST (create)
     jobs/                      # GET / POST (POST accepts customerId OR newContact)
     jobs/[id]/                 # GET / PATCH / DELETE
@@ -116,16 +139,18 @@ lib/
   airtable/
     client.ts                  # fetch-based Airtable wrapper (server-only)
     mapping.ts                 # logical name -> Airtable table/field name
-    types.ts                   # zod schemas (status enums, etc.)
+    types.ts                   # zod schemas (status enums, roles, etc.)
     jobs.ts                    # JobsRepo (Projects table)
     subs.ts                    # SubsRepo (Crews table)
     contacts.ts                # ContactsRepo (read + create)
+    users.ts                   # UsersRepo (App Users table)
     errors.ts                  # shared error → JSON response helper
-  auth.ts                      # passcode + signed-cookie session
+  auth.ts                      # signed-cookie sessions + password hashing
+  session.ts                   # requireUser / requireAdmin guards (server)
   env.ts                       # typed env access
   utils.ts                     # cn() helper
 components/
-  app-shell.tsx                # nav
+  app-shell.tsx                # role-aware nav
   query-provider.tsx           # TanStack Query
   calendar/schedule-view.tsx   # FullCalendar + drag-drop logic
   jobs/{jobs-list,job-form,job-detail,customer-picker}.tsx
@@ -165,7 +190,7 @@ Vercel:
 
 1. Push the repo to GitHub.
 2. Import on Vercel.
-3. Set the four env vars (`AIRTABLE_PAT`, `AIRTABLE_BASE_ID`, `ADMIN_PASSCODE`, `AUTH_SECRET`).
+3. Set the three env vars (`AIRTABLE_PAT`, `AIRTABLE_BASE_ID`, `AUTH_SECRET`).
 4. Deploy.
 
 Replace the placeholder icons in `public/icons/` with branded art before launch.

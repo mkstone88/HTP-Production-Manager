@@ -42,6 +42,9 @@ const PatchBody = z.object({
   customerReplied: z.boolean().optional(),
   colorsReceived: z.boolean().optional(),
   workOrderReady: z.boolean().optional(),
+  projectAmount: z.number().nullable().optional(),
+  subPayout: z.number().nullable().optional(),
+  jobCostingComplete: z.boolean().optional(),
 });
 
 export async function PATCH(req: Request, { params }: Ctx) {

@@ -5,6 +5,7 @@ import {
   AlertTriangle,
   Calendar,
   Check,
+  CheckCircle2,
   ChevronDown,
   Plus,
 } from "lucide-react";
@@ -120,7 +121,8 @@ export function JobsTriage() {
       </div>
     );
   }
-  if ((triage.data ?? []).length === 0) {
+  const all = triage.data ?? [];
+  if (all.length === 0) {
     return (
       <div className="p-4 text-sm text-muted-foreground">
         No accepted projects waiting on staging. ✨
@@ -128,19 +130,46 @@ export function JobsTriage() {
     );
   }
 
+  // Jobs still needing prep at top; fully-staged "ready to go" jobs at the
+  // bottom in their own muted section. A job stays in triage until its status
+  // advances to In Progress.
+  const working = all.filter((j) => !j.staging.ready);
+  const ready = all.filter((j) => j.staging.ready);
+
+  const renderRow = (j: TriageJob, muted = false) => (
+    <TriageRow
+      key={j.id}
+      job={j}
+      muted={muted}
+      subs={subs.data ?? []}
+      onPatch={(patch) => update.mutate({ id: j.id, patch })}
+      onOpenDetails={() => setEditingId(j.id)}
+    />
+  );
+
   return (
     <>
-      <ul className="divide-y">
-        {(triage.data ?? []).map((j) => (
-          <TriageRow
-            key={j.id}
-            job={j}
-            subs={subs.data ?? []}
-            onPatch={(patch) => update.mutate({ id: j.id, patch })}
-            onOpenDetails={() => setEditingId(j.id)}
-          />
-        ))}
-      </ul>
+      {working.length > 0 ? (
+        <ul className="divide-y">{working.map((j) => renderRow(j))}</ul>
+      ) : (
+        <div className="p-4 text-sm text-muted-foreground">
+          Nothing to triage right now — everything ready to go below. ✨
+        </div>
+      )}
+
+      {ready.length > 0 && (
+        <>
+          <div className="flex items-center gap-2 border-y bg-muted/50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <CheckCircle2 className="size-4" />
+            Ready to go
+            <span className="ml-1 font-normal opacity-70">
+              ({ready.length})
+            </span>
+          </div>
+          <ul className="divide-y">{ready.map((j) => renderRow(j, true))}</ul>
+        </>
+      )}
+
       <JobQuickEdit jobId={editingId} onClose={() => setEditingId(null)} />
     </>
   );
@@ -149,16 +178,18 @@ export function JobsTriage() {
 function TriageRow({
   job,
   subs,
+  muted = false,
   onPatch,
   onOpenDetails,
 }: {
   job: TriageJob;
   subs: Sub[];
+  muted?: boolean;
   onPatch: (patch: JobPatch) => void;
   onOpenDetails: () => void;
 }) {
   return (
-    <li className="px-4 py-3">
+    <li className={cn("px-4 py-3", muted && "opacity-70")}>
       <div className="flex items-start gap-2">
         <button
           type="button"
