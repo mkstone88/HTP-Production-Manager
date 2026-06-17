@@ -76,6 +76,11 @@ export function ScheduleView() {
   const [showCompleted, setShowCompleted] = useState(true);
   const [drawerOpenState, setDrawerOpenState] = useState(false);
   const drawerOpen = drawerOpenState || Boolean(focusJobId);
+  // Which list the unscheduled drawer is showing. "On Hold" jobs are split out
+  // so they don't clutter the day-to-day scheduling queue.
+  const [drawerTab, setDrawerTab] = useState<"unscheduled" | "onHold">(
+    "unscheduled",
+  );
   const [editingJobId, setEditingJobId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -89,9 +94,25 @@ export function ScheduleView() {
   }, [subsQuery.data]);
 
   const allJobs = jobsQuery.data ?? [];
+  // Jobs awaiting a date, split into the active queue and an On Hold parking lot.
   const unscheduled = allJobs.filter(
-    (j) => !j.scheduledStart && j.status !== "Completed",
+    (j) =>
+      !j.scheduledStart && j.status !== "Completed" && j.status !== "On Hold",
   );
+  const onHold = allJobs.filter(
+    (j) => !j.scheduledStart && j.status === "On Hold",
+  );
+  // A focused job (deep-linked from Triage) forces its tab open, the same way
+  // it forces the drawer open — otherwise honor the user's manual selection.
+  const focusedJob = focusJobId
+    ? allJobs.find((j) => j.id === focusJobId)
+    : undefined;
+  const activeTab: "unscheduled" | "onHold" = focusedJob
+    ? focusedJob.status === "On Hold"
+      ? "onHold"
+      : "unscheduled"
+    : drawerTab;
+  const drawerJobs = activeTab === "onHold" ? onHold : unscheduled;
   const scheduled = allJobs.filter((j) => j.scheduledStart);
   const visibleScheduled = scheduled.filter((j) => {
     if (subFilter && j.assignedSubId !== subFilter) return false;
@@ -138,7 +159,7 @@ export function ScheduleView() {
     if (!focusJobId) return;
     const el = document.querySelector(`[data-job-id="${focusJobId}"]`);
     el?.scrollIntoView({ behavior: "smooth", block: "center" });
-  }, [focusJobId, jobsQuery.data]);
+  }, [focusJobId, jobsQuery.data, activeTab]);
 
   const events = useMemo(
     () =>
@@ -243,43 +264,74 @@ export function ScheduleView() {
           )}
           aria-label="Unscheduled jobs"
         >
-          {/* Drawer handle (mobile only) */}
-          <button
-            type="button"
-            onClick={() => setDrawerOpenState((v) => !v)}
-            className={cn(
-              "flex w-full items-center justify-between gap-2 px-4 py-3 text-sm font-semibold lg:hidden",
-              "active:bg-muted/60 transition-colors",
-            )}
-            aria-expanded={drawerOpen}
-          >
-            <span>
+          {/* Header: tab switcher (always visible, doubles as the mobile peek).
+              Tapping a tab also expands the drawer; the chevron collapses it. */}
+          <div className="flex items-center gap-1 px-2 py-2" role="tablist">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === "unscheduled"}
+              onClick={() => {
+                setDrawerTab("unscheduled");
+                setDrawerOpenState(true);
+              }}
+              className={cn(
+                "flex-1 rounded-md px-3 py-2 text-sm font-semibold transition-colors",
+                activeTab === "unscheduled"
+                  ? "bg-muted text-foreground"
+                  : "text-muted-foreground active:bg-muted/60",
+              )}
+            >
               Unscheduled{" "}
               <span className="text-muted-foreground">({unscheduled.length})</span>
-            </span>
-            <ChevronUp
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === "onHold"}
+              onClick={() => {
+                setDrawerTab("onHold");
+                setDrawerOpenState(true);
+              }}
               className={cn(
-                "size-5 transition-transform duration-200",
-                drawerOpen && "rotate-180",
+                "flex-1 rounded-md px-3 py-2 text-sm font-semibold transition-colors",
+                activeTab === "onHold"
+                  ? "bg-muted text-foreground"
+                  : "text-muted-foreground active:bg-muted/60",
               )}
-            />
-          </button>
-          {/* Desktop header */}
-          <div className="hidden px-4 py-3 text-sm font-semibold lg:block">
-            Unscheduled{" "}
-            <span className="text-muted-foreground">({unscheduled.length})</span>
+            >
+              On Hold{" "}
+              <span className="text-muted-foreground">({onHold.length})</span>
+            </button>
+            {/* Mobile-only collapse toggle */}
+            <button
+              type="button"
+              onClick={() => setDrawerOpenState((v) => !v)}
+              className="shrink-0 rounded-md p-2 active:bg-muted/60 lg:hidden"
+              aria-label={drawerOpen ? "Collapse drawer" : "Expand drawer"}
+              aria-expanded={drawerOpen}
+            >
+              <ChevronUp
+                className={cn(
+                  "size-5 transition-transform duration-200",
+                  drawerOpen && "rotate-180",
+                )}
+              />
+            </button>
           </div>
 
-          <div className="flex flex-col gap-2 overflow-auto px-3 pb-4 lg:max-h-[calc(100dvh-9rem)]">
+          <div className="flex flex-col gap-2 overflow-y-auto overscroll-contain px-3 pb-4 lg:max-h-[calc(100dvh-9rem)]">
             {loading && (
               <div className="text-sm text-muted-foreground">Loading…</div>
             )}
-            {!loading && unscheduled.length === 0 && (
+            {!loading && drawerJobs.length === 0 && (
               <div className="text-sm text-muted-foreground">
-                No unscheduled jobs.
+                {activeTab === "onHold"
+                  ? "No jobs on hold."
+                  : "No unscheduled jobs."}
               </div>
             )}
-            {unscheduled.map((j) => (
+            {drawerJobs.map((j) => (
               <div
                 key={j.id}
                 data-draggable-job
@@ -295,7 +347,9 @@ export function ScheduleView() {
                   }
                 }}
                 className={cn(
-                  "min-h-12 cursor-grab touch-none select-none rounded-lg border bg-card p-3 text-sm shadow-sm",
+                  // touch-pan-y (not touch-none) so a swipe scrolls the list on
+                  // mobile; FullCalendar's long-press still initiates a drag.
+                  "min-h-12 cursor-grab touch-pan-y select-none rounded-lg border bg-card p-3 text-sm shadow-sm",
                   "transition-all duration-150 active:scale-[0.98] active:cursor-grabbing active:shadow-md",
                   focusJobId === j.id && "ring-2 ring-amber-500 ring-offset-2",
                 )}
