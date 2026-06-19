@@ -97,9 +97,20 @@ guards: `requireUser` / `requireAdmin`), and `proxy.ts` (route gating).
 - All events are all-day (matches Airtable's date-only fields).
 - **Show completed** toggle: when on, completed jobs appear grayed out and
   hatched. Turn it off to hide them entirely.
+- **Weather** toggle: drops a forecast overlay on the calendar. Each day shows
+  a small condition icon plus rain %, temperature, and wind badges (red once a
+  value crosses a concern threshold). Exterior jobs scheduled on a rough-weather
+  day turn red — a flag to review, not a directive to cancel. Forecast data
+  comes from [Open-Meteo](https://open-meteo.com) (free, no API key) for the
+  metro area; see the optional `WEATHER_*` env vars in `.env.example`. The
+  thresholds live in `lib/weather/risk.ts`.
 - Filter by sub via the dropdown.
 
 On mobile the unscheduled list is a bottom drawer — tap the handle to expand.
+
+The same forecast powers `GET /api/weather/risk`, which lists scheduled exterior
+jobs landing on bad-weather days (a future "what should I worry about this week?"
+agent query).
 
 ## Creating a job
 
