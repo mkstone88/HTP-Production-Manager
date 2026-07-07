@@ -96,6 +96,12 @@ Field names live only in `lib/airtable/mapping.ts`.
   `scheduled` (from `Job Start Date`). Add new staging steps in
   `lib/jobs/staging.ts` AND update the `StagingStep` enum in
   `lib/airtable/types.ts`.
+- **Paint Scout API key is provisioned but unused.** The env var
+  `PaintScout_API_Key` (exact casing) exists in both the dev sandbox and
+  Vercel. Paint Scout is the estimating software that feeds `Projects` via
+  Zapier (see "Project lifecycle" above). The key is reserved for a future
+  feature pulling quote data from the Paint Scout API — no code reads it
+  yet, so don't assume an integration exists.
 
 ## Verify before committing
 

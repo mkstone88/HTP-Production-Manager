@@ -64,6 +64,11 @@ Fill in:
   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
   ```
 
+Optional (reserved, not yet read by any code):
+
+- `PaintScout_API_Key` — Paint Scout API key. Already set in Vercel; reserved
+  for a future feature that pulls quote data from Paint Scout.
+
 ### 4. Run
 
 ```bash
