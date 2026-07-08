@@ -2,14 +2,18 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  Archive,
   CalendarClock,
+  ChevronRight,
   CircleCheck,
+  CircleX,
   ExternalLink,
   Handshake,
   Hourglass,
   Mail,
   MessageSquarePlus,
   Phone,
+  Trophy,
   X,
 } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -70,9 +74,14 @@ export function DealsBoard() {
     () => deals.filter((d) => estimator === "All" || d.estimator === estimator),
     [deals, estimator],
   );
-  const needsAction = scoped.filter((d) => !d.waiting);
+  // 90+ days without an outcome is a different job (backlog triage, not daily
+  // follow-up) — those collapse into their own group so fresh work stays on top.
+  const STALE_DAYS = 90;
+  const needsAction = scoped.filter((d) => !d.waiting && (d.daysOut ?? 0) < STALE_DAYS);
+  const stale = scoped.filter((d) => !d.waiting && (d.daysOut ?? 0) >= STALE_DAYS);
   const waiting = scoped.filter((d) => d.waiting);
   const totalOpen = scoped.reduce((sum, d) => sum + d.amount, 0);
+  const [staleOpen, setStaleOpen] = useState(false);
 
   return (
     <div className="flex flex-1 flex-col">
@@ -141,6 +150,31 @@ export function DealsBoard() {
               {waiting.map((d) => <DealCard key={d.id} deal={d} />)}
             </section>
           )}
+
+          {stale.length > 0 && (
+            <section className="space-y-3">
+              <button
+                type="button"
+                onClick={() => setStaleOpen((v) => !v)}
+                aria-expanded={staleOpen}
+                className="flex items-center gap-1.5 font-semibold"
+              >
+                <ChevronRight className={cn("size-4 transition-transform", staleOpen && "rotate-90")} />
+                <Archive className="size-4 text-muted-foreground" />
+                Stale — {stale.length} deal{stale.length === 1 ? "" : "s"} ·{" "}
+                {money(stale.reduce((s, d) => s + d.amount, 0))}
+              </button>
+              {staleOpen && (
+                <>
+                  <p className="text-sm text-muted-foreground">
+                    Pending 90+ days. Work these down when there&apos;s time — mark
+                    them lost, or schedule a check-in to revive one.
+                  </p>
+                  {stale.map((d) => <DealCard key={d.id} deal={d} />)}
+                </>
+              )}
+            </section>
+          )}
         </div>
       )}
     </div>
@@ -166,9 +200,11 @@ function AgeBadge({ days }: { days: number | null }) {
 
 function DealCard({ deal }: { deal: DealRow }) {
   const qc = useQueryClient();
-  const [panel, setPanel] = useState<"followUp" | "note" | null>(null);
+  const [panel, setPanel] = useState<"followUp" | "note" | "won" | "lost" | null>(null);
   const [followUpAt, setFollowUpAt] = useState("");
   const [note, setNote] = useState("");
+  const [wonAmount, setWonAmount] = useState(String(deal.amount || ""));
+  const [lostReason, setLostReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [notesOpen, setNotesOpen] = useState(false);
 
@@ -284,6 +320,55 @@ function DealCard({ deal }: { deal: DealRow }) {
         </div>
       )}
 
+      {panel === "won" && (
+        <div className="mt-3 flex flex-wrap items-end gap-2 rounded-md border bg-muted/30 p-3">
+          <div className="space-y-1">
+            <Label htmlFor={`won-${deal.id}`} className="text-xs">Accepted amount</Label>
+            <Input
+              id={`won-${deal.id}`}
+              type="number"
+              min="1"
+              step="0.01"
+              value={wonAmount}
+              onChange={(e) => setWonAmount(e.target.value)}
+              className="h-9 w-36"
+            />
+          </div>
+          <Button
+            size="sm"
+            className="gap-1.5 bg-success text-success-foreground hover:bg-success/90"
+            disabled={act.isPending || !(Number(wonAmount) > 0)}
+            onClick={() => act.mutate({ action: "markWon", amount: Number(wonAmount) })}
+          >
+            <Trophy className="size-4" /> Confirm won
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => setPanel(null)}>Cancel</Button>
+        </div>
+      )}
+      {panel === "lost" && (
+        <div className="mt-3 flex flex-wrap items-end gap-2 rounded-md border bg-muted/30 p-3">
+          <div className="min-w-0 flex-1 space-y-1">
+            <Label htmlFor={`lost-${deal.id}`} className="text-xs">Why did we lose it?</Label>
+            <Input
+              id={`lost-${deal.id}`}
+              value={lostReason}
+              onChange={(e) => setLostReason(e.target.value)}
+              placeholder="Went with another bid / not doing the project…"
+              className="h-9"
+            />
+          </div>
+          <Button
+            size="sm"
+            variant="destructive"
+            disabled={act.isPending || !lostReason.trim()}
+            onClick={() => act.mutate({ action: "markLost", reason: lostReason })}
+          >
+            Confirm lost
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => setPanel(null)}>Cancel</Button>
+        </div>
+      )}
+
       {panel === null && (
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <Button size="sm" variant="outline" className="gap-1.5" disabled={act.isPending} onClick={() => setPanel("followUp")}>
@@ -292,6 +377,12 @@ function DealCard({ deal }: { deal: DealRow }) {
           </Button>
           <Button size="sm" variant="outline" className="gap-1.5" disabled={act.isPending} onClick={() => setPanel("note")}>
             <MessageSquarePlus className="size-4" /> Add note
+          </Button>
+          <Button size="sm" variant="outline" className="gap-1.5" disabled={act.isPending} onClick={() => setPanel("won")}>
+            <Trophy className="size-4" /> Won
+          </Button>
+          <Button size="sm" variant="outline" className="gap-1.5" disabled={act.isPending} onClick={() => setPanel("lost")}>
+            <CircleX className="size-4" /> Lost
           </Button>
           {deal.waiting && (
             <Button

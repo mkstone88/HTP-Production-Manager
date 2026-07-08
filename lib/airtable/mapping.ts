@@ -151,6 +151,7 @@ export const opportunityFields = {
   lastContactedAt: "Last Contacted At",        // dateTime
   bookedAt: "Booked At",                       // dateTime
   disqualifiedAt: "Disqualified At",           // dateTime
+  lostAt: "Lost At",                           // dateTime
   abandonedAt: "Abandoned At",                 // dateTime
   appointmentAt: "Appointment Date/Time",      // dateTime
   nextFollowUpDate: "Next Follow-Up Date",     // dateTime — setter cadence

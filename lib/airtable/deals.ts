@@ -104,4 +104,38 @@ export const DealsRepo = {
     });
     return toDeal(updated);
   },
+
+  /**
+   * Close a deal from the board. The reconcile proposal sweep only flags a
+   * mismatch when PaintScout has a DEFINITIVE status (accepted/declined) that
+   * disagrees, so closing here while PaintScout still shows the quote open is
+   * quiet — see expectedOutcome in lib/reconcile/proposals.ts.
+   */
+  async markWon(id: string, by: string, amount?: number): Promise<DealRow> {
+    const rec = await airtable.get<OppFields>(tables.opportunities, id);
+    const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Chicago" });
+    const updated = await airtable.update<OppFields>(tables.opportunities, id, {
+      [f.saleOutcome]: "Won",
+      [f.wonAmount]: amount ?? num(rec.fields[f.proposalAmount]),
+      [f.dateOfSale]: today,
+      [f.salesFollowUpAt]: null,
+      [f.lastAction]: "sales-won",
+      [f.lastActionBy]: by,
+      [f.lastActionAt]: new Date().toISOString(),
+    });
+    return toDeal(updated);
+  },
+
+  async markLost(id: string, by: string, reason: string): Promise<DealRow> {
+    const updated = await airtable.update<OppFields>(tables.opportunities, id, {
+      [f.saleOutcome]: "Lost",
+      [f.reasonLost]: reason,
+      [f.lostAt]: new Date().toISOString(),
+      [f.salesFollowUpAt]: null,
+      [f.lastAction]: "sales-lost",
+      [f.lastActionBy]: by,
+      [f.lastActionAt]: new Date().toISOString(),
+    });
+    return toDeal(updated);
+  },
 };
