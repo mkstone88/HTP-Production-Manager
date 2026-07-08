@@ -20,6 +20,7 @@ import {
   HardHat,
   type LucideIcon,
   ShieldCheck,
+  SlidersHorizontal,
   UserPlus,
   Users,
   Waypoints,
@@ -86,7 +87,10 @@ export const SECTIONS: NavSection[] = [
     label: "Admin",
     icon: ShieldCheck,
     roles: [],
-    items: [{ href: "/users", label: "Users", icon: ShieldCheck }],
+    items: [
+      { href: "/users", label: "Users", icon: ShieldCheck },
+      { href: "/settings", label: "Settings", icon: SlidersHorizontal },
+    ],
   },
 ];
 

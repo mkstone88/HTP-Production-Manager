@@ -38,6 +38,7 @@ export const Job = z.object({
   customerId: z.string().optional(),        // Airtable record ID of the Contact
   customerName: z.string().optional(),      // looked up via the customer link
   address: z.string().optional(),           // looked up via the customer link
+  customerEmail: z.string().optional(),     // looked up via the customer link
   status: JobStatus.optional(),
   projectType: ProjectType.optional(),
   scheduledStart: z.string().optional(),    // YYYY-MM-DD
@@ -319,6 +320,26 @@ export const FunnelRow = z.object({
   won: z.boolean(),
 });
 export type FunnelRow = z.infer<typeof FunnelRow>;
+
+/**
+ * A templated customer email, editable under Admin → Settings. Template types
+ * are data (one Airtable row each), so new ones can be added without code.
+ * Contract for /api/templates.
+ */
+export const EmailTemplate = z.object({
+  id: z.string(),
+  name: z.string(),                         // shown in dropdowns; matched to Project Type
+  subject: z.string(),
+  body: z.string(),
+});
+export type EmailTemplate = z.infer<typeof EmailTemplate>;
+
+export const EmailTemplateInput = z.object({
+  name: z.string().min(1).max(100),
+  subject: z.string().max(300).default(""),
+  body: z.string().max(20000).default(""),
+});
+export type EmailTemplateInput = z.infer<typeof EmailTemplateInput>;
 
 /**
  * One open (pending) proposal on the sales Deals board. Response contract for

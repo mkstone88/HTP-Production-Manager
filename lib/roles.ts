@@ -49,6 +49,7 @@ export const ROUTE_ACCESS: AccessRule[] = [
   { prefix: "/reconcile", roles: ["Office Admin"] },
   { prefix: "/sources", roles: ["Office Admin", "Sales"] },
   { prefix: "/users", roles: ["Admin"] },
+  { prefix: "/settings", roles: ["Admin"] },
 ];
 
 function matches(prefix: string, pathname: string): boolean {
