@@ -381,9 +381,13 @@ export const Lead = z.object({
   appointmentAt: z.string().optional(),
   bookedAt: z.string().optional(),
   nextFollowUpDate: z.string().optional(),
+  callbackAt: z.string().optional(),        // customer-requested callback; overrides cadence
   contactAttempts: z.number(),
   ageDays: z.number().nullable(),
-  overdue: z.boolean(),                     // follow-up is due (or lead is uncontacted & aging)
+  overdue: z.boolean(),                     // needs attention now (state ≠ waiting)
+  // Queue position + chip: new (never touched — call NOW) → callback (requested
+  // time has arrived) → decision (cadence exhausted) → due → waiting.
+  queueState: z.enum(["new", "callback", "decision", "due", "waiting"]),
   ghlContactId: z.string().optional(),      // GHL Contact ID (correlation key)
   ghlUrl: z.string().optional(),            // deep link to the contact in GoHighLevel
 });

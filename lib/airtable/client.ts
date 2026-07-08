@@ -85,6 +85,7 @@ export const airtable = {
       filterByFormula?: string;
       sort?: { field: string; direction?: "asc" | "desc" }[];
       pageSize?: number;
+      maxRecords?: number;
       fields?: string[];
     } = {},
   ): Promise<AirtableRecord<T>[]> {
@@ -96,6 +97,7 @@ export const airtable = {
         view: params.view,
         filterByFormula: params.filterByFormula,
         pageSize: params.pageSize ?? 100,
+        maxRecords: params.maxRecords,
         offset,
       };
       // Airtable expects sort and fields as repeated params; encode manually.

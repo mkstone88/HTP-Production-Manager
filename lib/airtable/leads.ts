@@ -1,6 +1,6 @@
 import "server-only";
 
-import { computeNextFollowUp, daysSince, isOverdue } from "@/lib/leads/cadence";
+import { computeNextFollowUp, daysSince, queueState } from "@/lib/leads/cadence";
 import { ghlContactUrl } from "@/lib/ghl";
 import { airtable, type AirtableRecord } from "./client";
 import { opportunityFields, tables } from "./mapping";
@@ -32,8 +32,14 @@ function escapeFormula(v: string): string {
 function toLead(rec: AirtableRecord<OppFields>, contactName?: string): Lead {
   const r = rec.fields;
   const createdAt = opt(r[f.leadCreatedAt]) ?? rec.createdTime;
-  const nextFollowUpDate = opt(r[f.nextFollowUpDate]);
   const oppName = String(r[f.name] ?? "") || "(unnamed)";
+  const cadence = {
+    contactAttempts: num(r[f.contactAttempts]),
+    firstContactedAt: opt(r[f.firstContactedAt]),
+    callbackAt: opt(r[f.callbackAt]),
+    nextFollowUpDate: opt(r[f.nextFollowUpDate]),
+  };
+  const state = queueState(cadence);
   return {
     id: rec.id,
     name: contactName || oppName,
@@ -45,14 +51,13 @@ function toLead(rec: AirtableRecord<OppFields>, contactName?: string): Lead {
     disqualifyReason: opt(r[f.disqualifyReason]),
     notes: opt(r[f.notes]),
     createdAt,
-    firstContactedAt: opt(r[f.firstContactedAt]),
     lastContactedAt: opt(r[f.lastContactedAt]),
     appointmentAt: opt(r[f.appointmentAt]),
     bookedAt: opt(r[f.bookedAt]),
-    nextFollowUpDate,
-    contactAttempts: num(r[f.contactAttempts]),
+    ...cadence,
     ageDays: daysSince(createdAt),
-    overdue: isOverdue(nextFollowUpDate),
+    overdue: state !== "waiting",
+    queueState: state,
     ghlContactId: opt(r[f.ghlContactId]),
     ghlUrl: ghlContactUrl(opt(r[f.ghlContactId])),
   };
@@ -79,6 +84,22 @@ function audit(action: string, by: string): OppFields {
   };
 }
 
+/** Prepend a dated call-log line to the existing notes (newest first). */
+function prependNote(existing: unknown, note: string): string {
+  const stamp = new Date().toLocaleString("en-US", {
+    timeZone: "America/Chicago",
+    month: "numeric",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+  const prior = opt(existing);
+  return `[${stamp}] ${note.trim()}${prior ? `\n${prior}` : ""}`;
+}
+
+/** Queue sort rank — see QueueState in lib/leads/cadence.ts. */
+const STATE_RANK = { new: 0, callback: 1, decision: 2, due: 2, waiting: 3 } as const;
+
 export type NewLeadInput = {
   firstName: string;
   lastName: string;
@@ -100,14 +121,22 @@ export type GhlImportInput = {
 };
 
 export const LeadsRepo = {
-  /** The work queue: Open + Reschedule Needed, overdue first, then oldest. */
+  /**
+   * The work queue: Open + Reschedule Needed. Order: brand-new leads first
+   * (newest on top — call them NOW), then callbacks whose time has arrived,
+   * then due / decision-needed (oldest due first), then everything waiting.
+   */
   async listQueue(): Promise<Lead[]> {
     const recs = await airtable.listAll<OppFields>(tables.opportunities, {
       filterByFormula: `OR({${f.setterStatus}}='Open',{${f.setterStatus}}='Reschedule Needed')`,
     });
     const leads = await enrich(recs);
     return leads.sort((a, b) => {
-      if (a.overdue !== b.overdue) return a.overdue ? -1 : 1;
+      const ra = STATE_RANK[a.queueState];
+      const rb = STATE_RANK[b.queueState];
+      if (ra !== rb) return ra - rb;
+      if (ra === 0) return (b.createdAt ?? "").localeCompare(a.createdAt ?? "");
+      if (ra === 1) return (a.callbackAt ?? "").localeCompare(b.callbackAt ?? "");
       const an = a.nextFollowUpDate ?? a.createdAt ?? "";
       const bn = b.nextFollowUpDate ?? b.createdAt ?? "";
       return an.localeCompare(bn);
@@ -130,19 +159,53 @@ export const LeadsRepo = {
     return toLead(rec, name);
   },
 
-  /** Log a contact attempt: bump the counter and advance the cadence. */
-  async markContacted(id: string, by: string): Promise<Lead> {
+  /**
+   * Log a contact attempt: bump the counter, schedule the next touch relative
+   * to NOW, clear any pending callback (it just happened), and optionally
+   * prepend a dated call note.
+   */
+  async markContacted(id: string, by: string, note?: string): Promise<Lead> {
     const rec = await airtable.get<OppFields>(tables.opportunities, id);
     const attempts = num(rec.fields[f.contactAttempts]) + 1;
-    const createdAt = opt(rec.fields[f.leadCreatedAt]) ?? rec.createdTime;
     const fields: OppFields = {
       ...audit("contacted", by),
       [f.contactAttempts]: attempts,
       [f.lastContactedAt]: now(),
-      [f.nextFollowUpDate]: computeNextFollowUp(createdAt, attempts),
+      [f.nextFollowUpDate]: computeNextFollowUp(attempts),
+      [f.callbackAt]: null,
     };
     if (!rec.fields[f.firstContactedAt]) fields[f.firstContactedAt] = now();
+    if (note?.trim()) fields[f.notes] = prependNote(rec.fields[f.notes], note);
     const updated = await airtable.update<OppFields>(tables.opportunities, id, fields);
+    return toLead(updated);
+  },
+
+  /**
+   * Customer asked to be contacted at a specific time. Overrides the cadence:
+   * the lead sleeps until then, then surfaces at the top of the queue (right
+   * below brand-new leads). Cleared by the next logged contact.
+   */
+  async scheduleCallback(id: string, by: string, callbackAt: string, note?: string): Promise<Lead> {
+    const fields: OppFields = {
+      ...audit("callback", by),
+      [f.callbackAt]: callbackAt,
+      [f.nextFollowUpDate]: callbackAt,
+    };
+    if (note?.trim()) {
+      const rec = await airtable.get<OppFields>(tables.opportunities, id);
+      fields[f.notes] = prependNote(rec.fields[f.notes], note);
+    }
+    const updated = await airtable.update<OppFields>(tables.opportunities, id, fields);
+    return toLead(updated);
+  },
+
+  /** Prepend a dated note without logging a contact attempt. */
+  async addNote(id: string, by: string, note: string): Promise<Lead> {
+    const rec = await airtable.get<OppFields>(tables.opportunities, id);
+    const updated = await airtable.update<OppFields>(tables.opportunities, id, {
+      ...audit("note", by),
+      [f.notes]: prependNote(rec.fields[f.notes], note),
+    });
     return toLead(updated);
   },
 
@@ -152,9 +215,19 @@ export const LeadsRepo = {
       [f.setterStatus]: "Booked",
       [f.bookedAt]: now(),
       [f.nextFollowUpDate]: null,
+      [f.callbackAt]: null,
     };
     if (appointmentAt) fields[f.appointmentAt] = appointmentAt;
     const updated = await airtable.update<OppFields>(tables.opportunities, id, fields);
+    return toLead(updated);
+  },
+
+  /** Correct the appointment time on an already-booked lead. */
+  async setAppointment(id: string, by: string, appointmentAt: string): Promise<Lead> {
+    const updated = await airtable.update<OppFields>(tables.opportunities, id, {
+      ...audit("set-appointment", by),
+      [f.appointmentAt]: appointmentAt,
+    });
     return toLead(updated);
   },
 
@@ -165,6 +238,7 @@ export const LeadsRepo = {
       [f.disqualifyReason]: reason,
       [f.disqualifiedAt]: now(),
       [f.nextFollowUpDate]: null,
+      [f.callbackAt]: null,
     });
     return toLead(updated);
   },
@@ -175,6 +249,7 @@ export const LeadsRepo = {
       [f.setterStatus]: "Abandoned",
       [f.abandonedAt]: now(),
       [f.nextFollowUpDate]: null,
+      [f.callbackAt]: null,
     });
     return toLead(updated);
   },
@@ -187,15 +262,32 @@ export const LeadsRepo = {
     return toLead(updated);
   },
 
+  /** Bring a booked/disqualified/abandoned lead back into the queue, due now. */
   async reopen(id: string, by: string): Promise<Lead> {
-    const rec = await airtable.get<OppFields>(tables.opportunities, id);
-    const createdAt = opt(rec.fields[f.leadCreatedAt]) ?? rec.createdTime;
     const updated = await airtable.update<OppFields>(tables.opportunities, id, {
       ...audit("reopen", by),
       [f.setterStatus]: "Open",
-      [f.nextFollowUpDate]: computeNextFollowUp(createdAt, num(rec.fields[f.contactAttempts])),
+      [f.nextFollowUpDate]: now(),
+      [f.callbackAt]: null,
     });
     return toLead(updated);
+  },
+
+  /** Find leads across ALL statuses by name, email, or phone (min 2 chars). */
+  async search(q: string): Promise<Lead[]> {
+    const needle = escapeFormula(q.trim().toLowerCase());
+    const recs = await airtable.listAll<OppFields>(tables.opportunities, {
+      filterByFormula:
+        `OR(` +
+        `SEARCH('${needle}', LOWER({${f.name}}))` +
+        `,SEARCH('${needle}', LOWER({${f.matchEmail}}&''))` +
+        `,SEARCH('${needle}', LOWER(ARRAYJOIN({${f.emailFromContact}})))` +
+        `,SEARCH('${needle}', ARRAYJOIN({${f.phoneFromContact}}))` +
+        `)`,
+      sort: [{ field: f.leadCreatedAt, direction: "desc" }],
+      maxRecords: 25,
+    });
+    return enrich(recs);
   },
 
   async remove(id: string): Promise<void> {
@@ -232,7 +324,7 @@ export const LeadsRepo = {
       [f.jobType]: input.jobType,
       [f.setterStatus]: "Open",
       [f.leadCreatedAt]: createdAt,
-      [f.nextFollowUpDate]: computeNextFollowUp(createdAt, 0),
+      [f.nextFollowUpDate]: computeNextFollowUp(0), // due immediately — speed-to-lead
       [f.notes]: input.notes,
       ...audit("create", by),
     });
@@ -265,7 +357,7 @@ export const LeadsRepo = {
       [f.ghlContactId]: input.ghlContactId,
       [f.setterStatus]: "Open",
       [f.leadCreatedAt]: createdAt,
-      [f.nextFollowUpDate]: computeNextFollowUp(createdAt, 0),
+      [f.nextFollowUpDate]: computeNextFollowUp(0), // due immediately — speed-to-lead
       ...audit("import", by),
     });
     return toLead(rec, contact.name);

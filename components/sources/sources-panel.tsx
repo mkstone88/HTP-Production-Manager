@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Search, Waypoints } from "lucide-react";
+import { Check, Search, TriangleAlert, Waypoints } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,14 @@ async function getJson<T>(url: string): Promise<T> {
 
 export function SourcesPanel() {
   const [tab, setTab] = useState<Tab>("fix");
+  // Same key as FixTab's query, so this is one fetch shared from the cache. The
+  // badge makes "sources need fixing" visible without opening the tab.
+  const review = useQuery({
+    queryKey: ["sources", "review"],
+    queryFn: () => getJson<{ rows: SourceReviewRow[] }>("/api/sources/review"),
+  });
+  const needsFixing = review.data?.rows.length ?? 0;
+
   return (
     <div className="flex flex-1 flex-col">
       <div className="flex items-center gap-2 border-b px-4 py-3">
@@ -30,7 +38,15 @@ export function SourcesPanel() {
         </h1>
       </div>
       <div role="tablist" className="flex gap-1 border-b px-2 py-2 sm:px-3">
-        <TabButton active={tab === "fix"} onClick={() => setTab("fix")}>Fix sources</TabButton>
+        <TabButton active={tab === "fix"} onClick={() => setTab("fix")}>
+          Fix sources
+          {needsFixing > 0 && (
+            <span className="ml-1.5 inline-flex items-center gap-1 rounded-full bg-warning/20 px-1.5 py-0.5 text-xs font-semibold text-warning">
+              <TriangleAlert className="size-3" />
+              {needsFixing}
+            </span>
+          )}
+        </TabButton>
         <TabButton active={tab === "funnel"} onClick={() => setTab("funnel")}>Funnel</TabButton>
       </div>
       {tab === "fix" ? <FixTab /> : <FunnelTab />}

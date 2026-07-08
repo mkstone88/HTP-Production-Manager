@@ -154,6 +154,7 @@ export const opportunityFields = {
   abandonedAt: "Abandoned At",                 // dateTime
   appointmentAt: "Appointment Date/Time",      // dateTime
   nextFollowUpDate: "Next Follow-Up Date",     // dateTime — cadence
+  callbackAt: "Callback At",                   // dateTime — customer-requested callback; overrides cadence
   contactAttempts: "# Contact Attempts",       // number
   lastAction: "Last Action",                   // singleLineText (audit)
   lastActionBy: "Last Action By",              // singleLineText (audit — user email)
