@@ -154,7 +154,7 @@ function SourceRow({
 }) {
   const qc = useQueryClient();
   const [source, setSource] = useState<string>("");
-  const [remember, setRemember] = useState(true);
+  const [remember, setRemember] = useState(false);
   const [note, setNote] = useState<string | null>(null);
 
   const save = useMutation({
@@ -235,16 +235,37 @@ const pct = (num: number, den: number) => (den ? `${Math.round((num / den) * 100
 
 interface Agg { leads: number; appts: number; proposals: number; sold: number; revenue: number }
 const emptyAgg = (): Agg => ({ leads: 0, appts: 0, proposals: 0, sold: 0, revenue: 0 });
-function add(a: Agg, r: FunnelRow) {
-  a.leads++;
-  if (r.appt) a.appts++;
-  if (r.proposal) a.proposals++;
-  if (r.won) { a.sold++; a.revenue += r.revenue; }
+
+type Basis = "activity" | "cohort";
+
+/**
+ * Accumulate one funnel row into month buckets. In "activity" mode each stage
+ * lands in the month it actually happened (a proposal in the month it was SENT,
+ * a win in the month it CLOSED). In "cohort" mode every stage is credited to the
+ * lead's created month — marketing ROI for a lead vintage.
+ */
+function bump(map: Map<string, Agg>, month: string, apply: (a: Agg) => void) {
+  if (!month) return;
+  if (!map.has(month)) map.set(month, emptyAgg());
+  apply(map.get(month)!);
 }
 function monthLabel(m: string) {
   const [y, mm] = m.split("-");
   const names = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   return `${names[Number(mm)] || mm} ${y}`;
+}
+
+type FunnelView = "byMonth" | "bySource";
+
+/** The event month a row's stage lands in, honoring the cohort/activity basis. */
+function stageMonths(r: FunnelRow, basis: Basis) {
+  const leadM = r.leadMonth;
+  return {
+    leadM,
+    apptM: basis === "cohort" ? leadM : r.apptMonth,
+    propM: basis === "cohort" ? leadM : r.proposalMonth,
+    wonM: basis === "cohort" ? leadM : r.wonMonth,
+  };
 }
 
 function FunnelTab() {
@@ -253,65 +274,195 @@ function FunnelTab() {
     queryFn: () => getJson<{ rows: FunnelRow[] }>("/api/analytics/funnel"),
   });
   const rows = useMemo(() => q.data?.rows ?? [], [q.data]);
+  const [view, setView] = useState<FunnelView>("byMonth");
   const [source, setSource] = useState("All");
+  const [basis, setBasis] = useState<Basis>("activity");
+  const [month, setMonth] = useState<string>("");
 
   const sources = useMemo(
     () => [...new Set(rows.map((r) => r.source).filter(Boolean))].sort(),
     [rows],
   );
 
-  const { months, total } = useMemo(() => {
-    const scoped = rows.filter((r) => r.month && (source === "All" || r.source === source));
+  // Every month that shows any activity, newest first — powers the By-source picker.
+  const allMonths = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of rows) {
+      for (const m of [r.leadMonth, r.apptMonth, r.proposalMonth, r.wonMonth]) {
+        if (m) set.add(m);
+      }
+    }
+    return [...set].sort((a, b) => b.localeCompare(a));
+  }, [rows]);
+
+  // Default the month picker to the newest month once data lands.
+  const selectedMonth = month || allMonths[0] || "";
+
+  // --- By month: rows are months (optionally scoped to one source) -----------
+  const { months, monthTotal } = useMemo(() => {
+    const scoped = rows.filter((r) => source === "All" || r.source === source);
     const byMonth = new Map<string, Agg>();
-    const total = emptyAgg();
+    const monthTotal = emptyAgg();
     for (const r of scoped) {
-      if (!byMonth.has(r.month)) byMonth.set(r.month, emptyAgg());
-      add(byMonth.get(r.month)!, r);
-      add(total, r);
+      const { leadM, apptM, propM, wonM } = stageMonths(r, basis);
+      bump(byMonth, leadM, (a) => a.leads++);
+      if (r.appt) bump(byMonth, apptM, (a) => a.appts++);
+      if (r.proposal) bump(byMonth, propM, (a) => a.proposals++);
+      if (r.won) bump(byMonth, wonM, (a) => { a.sold++; a.revenue += r.revenue; });
+
+      if (r.leadMonth) monthTotal.leads++;
+      if (r.appt) monthTotal.appts++;
+      if (r.proposal) monthTotal.proposals++;
+      if (r.won) { monthTotal.sold++; monthTotal.revenue += r.revenue; }
     }
     const months = [...byMonth.entries()]
       .sort((a, b) => b[0].localeCompare(a[0]))
-      .map(([month, a]) => ({ month, ...a }));
-    return { months, total };
-  }, [rows, source]);
+      .map(([m, a]) => ({ month: m, ...a }));
+    return { months, monthTotal };
+  }, [rows, source, basis]);
+
+  // --- By source: rows are sources for one selected month --------------------
+  const { sourceRows, sourceTotal } = useMemo(() => {
+    const bySource = new Map<string, Agg>();
+    const sourceTotal = emptyAgg();
+    const bumpSource = (src: string, apply: (a: Agg) => void) => {
+      if (!bySource.has(src)) bySource.set(src, emptyAgg());
+      apply(bySource.get(src)!);
+    };
+    for (const r of rows) {
+      const src = r.source || "Unknown";
+      const { leadM, apptM, propM, wonM } = stageMonths(r, basis);
+      if (leadM === selectedMonth) { bumpSource(src, (a) => a.leads++); sourceTotal.leads++; }
+      if (r.appt && apptM === selectedMonth) { bumpSource(src, (a) => a.appts++); sourceTotal.appts++; }
+      if (r.proposal && propM === selectedMonth) { bumpSource(src, (a) => a.proposals++); sourceTotal.proposals++; }
+      if (r.won && wonM === selectedMonth) {
+        bumpSource(src, (a) => { a.sold++; a.revenue += r.revenue; });
+        sourceTotal.sold++; sourceTotal.revenue += r.revenue;
+      }
+    }
+    const sourceRows = [...bySource.entries()]
+      .sort((a, b) => b[1].leads - a[1].leads || b[1].revenue - a[1].revenue)
+      .map(([src, a]) => ({ source: src, ...a }));
+    return { sourceRows, sourceTotal };
+  }, [rows, basis, selectedMonth]);
 
   if (q.isLoading) return <p className="p-4 text-sm text-muted-foreground sm:p-6">Loading funnel…</p>;
   if (q.error) return <div className="p-4 sm:p-6"><ErrorBox error={q.error} /></div>;
 
   return (
     <div className="space-y-4 p-4 sm:p-6">
-      <label className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-        <span className="font-semibold">Lead source</span>
-        <select
-          value={source}
-          onChange={(e) => setSource(e.target.value)}
-          className="rounded-md border border-input bg-background px-2 py-1.5 text-sm"
-        >
-          <option value="All">All sources</option>
-          {sources.map((s) => <option key={s} value={s}>{s}</option>)}
-        </select>
-      </label>
+      <div className="flex flex-wrap items-center gap-3">
+        {/* View toggle: months down the side, or sources for one month */}
+        <div className="inline-flex overflow-hidden rounded-md border border-input text-xs">
+          <button
+            type="button"
+            onClick={() => setView("byMonth")}
+            className={cn("px-3 py-1.5 font-medium", view === "byMonth" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground")}
+          >
+            By month
+          </button>
+          <button
+            type="button"
+            onClick={() => setView("bySource")}
+            className={cn("border-l border-input px-3 py-1.5 font-medium", view === "bySource" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground")}
+          >
+            By source
+          </button>
+        </div>
+
+        {view === "byMonth" ? (
+          <label className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+            <span className="font-semibold">Lead source</span>
+            <select
+              value={source}
+              onChange={(e) => setSource(e.target.value)}
+              className="rounded-md border border-input bg-background px-2 py-1.5 text-sm"
+            >
+              <option value="All">All sources</option>
+              {sources.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </label>
+        ) : (
+          <label className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+            <span className="font-semibold">Month</span>
+            <select
+              value={selectedMonth}
+              onChange={(e) => setMonth(e.target.value)}
+              className="rounded-md border border-input bg-background px-2 py-1.5 text-sm"
+            >
+              {allMonths.map((m) => <option key={m} value={m}>{monthLabel(m)}</option>)}
+            </select>
+          </label>
+        )}
+
+        <div className="inline-flex overflow-hidden rounded-md border border-input text-xs">
+          <button
+            type="button"
+            onClick={() => setBasis("activity")}
+            className={cn("px-3 py-1.5 font-medium", basis === "activity" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground")}
+          >
+            When it happened
+          </button>
+          <button
+            type="button"
+            onClick={() => setBasis("cohort")}
+            className={cn("border-l border-input px-3 py-1.5 font-medium", basis === "cohort" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground")}
+          >
+            Lead cohort
+          </button>
+        </div>
+      </div>
 
       <Card className="overflow-x-auto">
         <table className="w-full min-w-[720px] text-sm">
           <thead>
             <tr className="border-b text-left text-[11px] uppercase tracking-wider text-muted-foreground">
-              <th className="px-4 py-2.5 font-semibold">Month</th>
+              <th className="px-4 py-2.5 font-semibold">{view === "byMonth" ? "Month" : "Source"}</th>
               <Th>Leads</Th><Th>Appts</Th><Th>Proposals</Th><Th>Sold</Th><Th>Revenue</Th>
               <Th>Book %</Th><Th>Close %</Th><Th>$/Lead</Th>
             </tr>
           </thead>
           <tbody>
-            <FunnelTr label="All time" a={total} bold />
-            {months.map((m) => <FunnelTr key={m.month} label={monthLabel(m.month)} a={m} />)}
+            {view === "byMonth" ? (
+              <>
+                <FunnelTr label="All time" a={monthTotal} bold />
+                {months.map((m) => <FunnelTr key={m.month} label={monthLabel(m.month)} a={m} />)}
+              </>
+            ) : (
+              <>
+                <FunnelTr label={`${monthLabel(selectedMonth)} · all sources`} a={sourceTotal} bold />
+                {sourceRows.map((s) => <FunnelTr key={s.source} label={s.source} a={s} />)}
+                {sourceRows.length === 0 && (
+                  <tr className="border-t">
+                    <td colSpan={9} className="px-4 py-6 text-center text-sm text-muted-foreground">
+                      No activity in {monthLabel(selectedMonth)}.
+                    </td>
+                  </tr>
+                )}
+              </>
+            )}
           </tbody>
         </table>
       </Card>
       <p className="max-w-[80ch] text-xs text-muted-foreground">
+        {basis === "activity" ? (
+          <>
+            <strong>When it happened</strong> counts each stage in its own event
+            month — a proposal in the month it was sent, a win in the month it
+            closed — so a single lead can span several rows. Best for “how much did
+            we send/close this month?”
+          </>
+        ) : (
+          <>
+            <strong>Lead cohort</strong> credits every stage back to the month the
+            lead came in, so a row is the full lifetime of that month’s leads. Best
+            for marketing ROI, but recent months look small because those leads
+            haven’t converted yet.
+          </>
+        )}{" "}
         Stages nest: a sold job counts as a proposal and an appointment, so Leads ≥
-        Appts ≥ Proposals ≥ Sold. Book % = appts ÷ leads · Close % = sold ÷ proposals.
-        Recent months are still maturing; appointment counts on older imported leads
-        undercount where booking wasn’t recorded historically.
+        Appts ≥ Proposals ≥ Sold within a cohort. Book % = appts ÷ leads · Close % =
+        sold ÷ proposals.
       </p>
     </div>
   );

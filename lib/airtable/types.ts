@@ -306,11 +306,17 @@ export type SalesRow = z.infer<typeof SalesRow>;
  */
 export const FunnelRow = z.object({
   source: z.string(),
-  month: z.string(),                        // YYYY-MM (lead-created attribution)
+  // Each stage carries the month it happened (YYYY-MM, "" if it didn't), so the
+  // client can bucket by lead cohort (leadMonth) OR by activity (each stage in
+  // its own event month — e.g. proposals in the month they were sent).
+  leadMonth: z.string(),                    // Lead Created At
+  apptMonth: z.string(),                    // appointment / booked
+  proposalMonth: z.string(),                // proposal sent
+  wonMonth: z.string(),                     // date of sale
+  revenue: z.number(),
   appt: z.boolean(),
   proposal: z.boolean(),
   won: z.boolean(),
-  revenue: z.number(),
 });
 export type FunnelRow = z.infer<typeof FunnelRow>;
 
@@ -378,6 +384,8 @@ export const Lead = z.object({
   contactAttempts: z.number(),
   ageDays: z.number().nullable(),
   overdue: z.boolean(),                     // follow-up is due (or lead is uncontacted & aging)
+  ghlContactId: z.string().optional(),      // GHL Contact ID (correlation key)
+  ghlUrl: z.string().optional(),            // deep link to the contact in GoHighLevel
 });
 export type Lead = z.infer<typeof Lead>;
 

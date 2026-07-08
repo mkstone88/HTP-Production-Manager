@@ -8,10 +8,26 @@ const BASE = "https://services.leadconnectorhq.com";
 const TOKEN = process.env.GHL_API_Token || process.env.GHL_API_TOKEN || "";
 const LOCATION = process.env.GHL_Location_ID || process.env.GHL_LOCATION_ID || "";
 const VERSION = "2021-07-28";
+// The HighLevel web app host. Override only for white-label agency domains.
+const APP_DOMAIN =
+  process.env.GHL_App_Domain || process.env.GHL_APP_DOMAIN || "app.gohighlevel.com";
 
 /** Whether GHL credentials are configured. */
 export function hasGhlConfig(): boolean {
   return Boolean(TOKEN && LOCATION);
+}
+
+/**
+ * Deep link to a contact in the GoHighLevel web app, or undefined when we can't
+ * build one (no contact id, or the location isn't configured — e.g. the dev
+ * sandbox has no GHL secrets). Location-scoped v2 URL so it resolves straight to
+ * the contact detail regardless of which sub-account the user last opened.
+ */
+export function ghlContactUrl(contactId?: string): string | undefined {
+  if (!contactId || !LOCATION) return undefined;
+  return `https://${APP_DOMAIN}/v2/location/${encodeURIComponent(
+    LOCATION,
+  )}/contacts/detail/${encodeURIComponent(contactId)}`;
 }
 
 export interface GhlOpportunity {

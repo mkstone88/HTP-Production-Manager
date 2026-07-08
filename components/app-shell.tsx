@@ -3,55 +3,23 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
-import {
-  BarChart3,
-  Calendar,
-  CalendarCheck,
-  ClipboardList,
-  DollarSign,
-  Ellipsis,
-  GitCompare,
-  type LucideIcon,
-  LogOut,
-  Settings,
-  ShieldCheck,
-  UserPlus,
-  Users,
-  Waypoints,
-} from "lucide-react";
+import { useMemo } from "react";
+import { type LucideIcon, LogOut, Settings } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { useCurrentUser } from "@/components/use-current-user";
-import { canAccess } from "@/lib/roles";
+import { activeSection, sectionsFor } from "@/lib/nav";
 import { cn } from "@/lib/utils";
-
-type NavItem = { href: string; label: string; icon: LucideIcon };
-
-const NAV: NavItem[] = [
-  { href: "/schedule", label: "Schedule", icon: Calendar },
-  { href: "/jobs", label: "Jobs", icon: ClipboardList },
-  { href: "/subs", label: "Subs", icon: Users },
-  { href: "/costing", label: "Costing", icon: DollarSign },
-  { href: "/sales", label: "Sales", icon: BarChart3 },
-  { href: "/scorecard", label: "Scorecard", icon: CalendarCheck },
-  { href: "/leads", label: "Leads", icon: UserPlus },
-  { href: "/reconcile", label: "Reconcile", icon: GitCompare },
-  { href: "/sources", label: "Sources", icon: Waypoints },
-  { href: "/users", label: "Users", icon: ShieldCheck },
-];
-
-// How many items fit on the mobile bottom bar before the rest roll into "More".
-const MOBILE_PRIMARY = 4;
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { data: user } = useCurrentUser();
   const roles = useMemo(() => user?.roles ?? [], [user]);
-  const [moreOpen, setMoreOpen] = useState(false);
 
-  const nav = useMemo(() => NAV.filter((item) => canAccess(roles, item.href)), [roles]);
+  const sections = useMemo(() => sectionsFor(roles), [roles]);
+  const current = useMemo(() => activeSection(pathname, roles), [pathname, roles]);
+  const subItems = current?.items ?? [];
 
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -62,14 +30,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(`${href}/`);
 
-  const primary = nav.length > 5 ? nav.slice(0, MOBILE_PRIMARY) : nav;
-  const overflow = nav.length > 5 ? nav.slice(MOBILE_PRIMARY) : [];
-  const overflowActive = overflow.some((i) => isActive(i.href));
-  const mobileCols = primary.length + (overflow.length ? 1 : 0);
+  // Mobile shows a bottom section-switcher only when there's more than one
+  // section to switch between; a single-section user navigates via the sub-nav.
+  const showSwitcher = sections.length > 1;
 
   return (
     <div className="flex min-h-dvh flex-col md:flex-row">
-      {/* Desktop / tablet sidebar */}
+      {/* Desktop / tablet sidebar — grouped by section */}
       <aside className="hidden md:flex md:w-60 md:shrink-0 md:flex-col md:border-r md:bg-sidebar md:text-sidebar-foreground">
         <div className="flex items-center px-4 py-5">
           <Image
@@ -81,29 +48,34 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             className="h-9 w-auto"
           />
         </div>
-        <div className="px-5 pb-3 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-          Hometown Ops
-        </div>
-        <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-2">
-          {nav.map((item) => {
-            const active = isActive(item.href);
-            const Icon = item.icon;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "flex h-11 items-center gap-3 rounded-md px-3 text-sm font-medium transition-colors",
-                  active
-                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                    : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
-                )}
-              >
-                <Icon className="size-4" />
-                {item.label}
-              </Link>
-            );
-          })}
+        <nav className="flex flex-1 flex-col gap-4 overflow-y-auto px-2 pb-3">
+          {sections.map((section) => (
+            <div key={section.key} className="flex flex-col gap-1">
+              <div className="flex items-center gap-2 px-3 pb-0.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <section.icon className="size-3.5" />
+                {section.label}
+              </div>
+              {section.items.map((item) => {
+                const active = isActive(item.href);
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={cn(
+                      "flex h-11 items-center gap-3 rounded-md px-3 text-sm font-medium transition-colors",
+                      active
+                        ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                        : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
+                    )}
+                  >
+                    <Icon className="size-4" />
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </div>
+          ))}
         </nav>
         <div className="flex flex-col gap-1 border-t px-2 py-3">
           {user && (
@@ -156,74 +128,62 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      {/* Main content */}
-      <main className="flex flex-1 flex-col pb-16 md:pb-0">{children}</main>
-
-      {/* Mobile "More" sheet */}
-      {moreOpen && overflow.length > 0 && (
-        <div className="fixed inset-0 z-40 md:hidden" onClick={() => setMoreOpen(false)}>
-          <div className="absolute inset-0 bg-black/30" />
-          <div
-            className="absolute inset-x-0 bottom-16 mx-2 rounded-xl border bg-background p-2 shadow-lg"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {overflow.map((item) => {
-              const active = isActive(item.href);
-              const Icon = item.icon;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setMoreOpen(false)}
-                  className={cn(
-                    "flex h-12 items-center gap-3 rounded-md px-3 text-sm font-medium",
-                    active ? "bg-accent text-accent-foreground" : "text-foreground hover:bg-muted",
-                  )}
-                >
-                  <Icon className="size-5" />
-                  {item.label}
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Mobile bottom nav */}
-      {nav.length > 0 && (
+      {/* Mobile sub-nav — the active section's pages */}
+      {subItems.length > 0 && (
         <nav
-          className="fixed inset-x-0 bottom-0 z-30 grid border-t bg-background pb-[env(safe-area-inset-bottom)] md:hidden"
-          style={{ gridTemplateColumns: `repeat(${mobileCols}, minmax(0, 1fr))` }}
-          aria-label="Primary"
+          className="flex gap-1 overflow-x-auto border-b bg-background px-2 py-2 md:hidden"
+          aria-label={current ? `${current.label} pages` : "Pages"}
         >
-          {primary.map((item) => {
+          {subItems.map((item) => {
             const active = isActive(item.href);
             const Icon = item.icon;
-            return <BottomLink key={item.href} href={item.href} label={item.label} Icon={Icon} active={active} />;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3 text-sm font-medium transition-colors",
+                  active
+                    ? "bg-foreground text-background"
+                    : "text-muted-foreground hover:bg-muted/60",
+                )}
+              >
+                <Icon className="size-4" />
+                {item.label}
+              </Link>
+            );
           })}
-          {overflow.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setMoreOpen((v) => !v)}
-              aria-label="More"
-              className={cn(
-                "relative flex flex-col items-center justify-center gap-1 py-2 text-xs transition-colors",
-                overflowActive || moreOpen
-                  ? "text-[var(--htp-blue)] dark:text-[var(--primary)]"
-                  : "text-muted-foreground",
-              )}
-            >
-              <Ellipsis className="size-5" />
-              More
-            </button>
-          )}
+        </nav>
+      )}
+
+      {/* Main content */}
+      <main className={cn("flex flex-1 flex-col", showSwitcher ? "pb-16 md:pb-0" : "")}>
+        {children}
+      </main>
+
+      {/* Mobile bottom nav — section switcher */}
+      {showSwitcher && (
+        <nav
+          className="fixed inset-x-0 bottom-0 z-30 grid border-t bg-background pb-[env(safe-area-inset-bottom)] md:hidden"
+          style={{ gridTemplateColumns: `repeat(${sections.length}, minmax(0, 1fr))` }}
+          aria-label="Sections"
+        >
+          {sections.map((section) => (
+            <SectionTab
+              key={section.key}
+              href={section.items[0]?.href ?? "/"}
+              label={section.label}
+              Icon={section.icon}
+              active={current?.key === section.key}
+            />
+          ))}
         </nav>
       )}
     </div>
   );
 }
 
-function BottomLink({
+function SectionTab({
   href,
   label,
   Icon,
@@ -238,7 +198,7 @@ function BottomLink({
     <Link
       href={href}
       className={cn(
-        "relative flex flex-col items-center justify-center gap-1 py-2 text-xs transition-colors",
+        "relative flex flex-col items-center justify-center gap-1 px-1 py-2 text-center text-[11px] leading-tight transition-colors",
         active ? "text-[var(--htp-blue)] dark:text-[var(--primary)]" : "text-muted-foreground",
       )}
     >

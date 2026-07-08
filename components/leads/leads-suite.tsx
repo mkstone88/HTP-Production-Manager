@@ -9,6 +9,7 @@ import {
   CircleX,
   Clock,
   Ellipsis,
+  ExternalLink,
   Inbox,
   LoaderCircle,
   Mail,
@@ -174,13 +175,14 @@ function LeadCard({ lead }: { lead: Lead }) {
     <Card className={cn("p-4", lead.overdue && "border-warning/40")}>
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="font-medium">{lead.name}</span>
             {lead.status === "Reschedule Needed" && (
               <span className="rounded-full bg-warning/15 px-2 py-0.5 text-xs text-warning">
                 Reschedule
               </span>
             )}
+            <GhlLink url={lead.ghlUrl} />
           </div>
           <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-sm text-muted-foreground">
             {lead.phone && (
@@ -351,6 +353,26 @@ function Tag({ children }: { children: React.ReactNode }) {
   return <span className="rounded-full bg-muted px-2 py-0.5">{children}</span>;
 }
 
+/** Deep link to the lead's contact in GoHighLevel. Renders nothing when the
+ *  contact isn't linked to GHL (or GHL isn't configured server-side). */
+function GhlLink({ url, className }: { url?: string; className?: string }) {
+  if (!url) return null;
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      title="Open contact in GoHighLevel"
+      className={cn(
+        "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
+        className,
+      )}
+    >
+      <ExternalLink className="size-3.5" /> GHL
+    </a>
+  );
+}
+
 /* ---- Booked -------------------------------------------------------------- */
 
 function BookedTab() {
@@ -367,7 +389,10 @@ function BookedTab() {
       {leads.map((l) => (
         <div key={l.id} className="px-4 py-3 sm:px-6">
           <div className="flex items-center justify-between gap-2">
-            <span className="font-medium">{l.name}</span>
+            <div className="flex items-center gap-2">
+              <span className="font-medium">{l.name}</span>
+              <GhlLink url={l.ghlUrl} />
+            </div>
             <span className="text-xs text-muted-foreground">
               {l.appointmentAt
                 ? new Date(l.appointmentAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
