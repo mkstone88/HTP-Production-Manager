@@ -1,8 +1,9 @@
 import "server-only";
 
+import { isRole, type Role } from "@/lib/roles";
 import { airtable, type AirtableRecord } from "./client";
 import { tables, userFields } from "./mapping";
-import type { AppUser, UserRole } from "./types";
+import type { AppUser } from "./types";
 
 type UserAirtableFields = Record<string, unknown>;
 
@@ -11,13 +12,21 @@ function optString(v: unknown): string | undefined {
   return String(v);
 }
 
+/** Roles from the multi-select, falling back to the legacy admin/user field. */
+function rolesFrom(f: UserAirtableFields): Role[] {
+  const raw = f[userFields.roles];
+  if (Array.isArray(raw) && raw.length > 0) return raw.map(String).filter(isRole);
+  const legacy = optString(f[userFields.legacyRole])?.toLowerCase();
+  return legacy === "admin" ? ["Admin"] : [];
+}
+
 function fromRecord(rec: AirtableRecord<UserAirtableFields>): AppUser {
   const f = rec.fields;
   return {
     id: rec.id,
     name: String(f[userFields.name] ?? ""),
     email: String(f[userFields.email] ?? ""),
-    role: (optString(f[userFields.role]) as UserRole) ?? "user",
+    roles: rolesFrom(f),
     active: Boolean(f[userFields.active]),
   };
 }
@@ -32,7 +41,7 @@ export type UserWithSecret = { user: AppUser; passwordHash?: string };
 export type CreateUserInput = {
   name: string;
   email: string;
-  role: UserRole;
+  roles: Role[];
   active: boolean;
   passwordHash: string;
 };
@@ -40,7 +49,7 @@ export type CreateUserInput = {
 export type UserPatch = Partial<{
   name: string;
   email: string;
-  role: UserRole;
+  roles: Role[];
   active: boolean;
   passwordHash: string;
 }>;
@@ -49,7 +58,7 @@ function toFields(p: CreateUserInput | UserPatch): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   if (p.name !== undefined) out[userFields.name] = p.name;
   if (p.email !== undefined) out[userFields.email] = p.email;
-  if (p.role !== undefined) out[userFields.role] = p.role;
+  if (p.roles !== undefined) out[userFields.roles] = p.roles;
   if (p.active !== undefined) out[userFields.active] = p.active;
   if (p.passwordHash !== undefined) out[userFields.password] = p.passwordHash;
   return out;

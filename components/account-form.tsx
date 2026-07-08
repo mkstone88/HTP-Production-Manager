@@ -54,7 +54,10 @@ export function AccountForm() {
             <div className="font-medium">{user.name}</div>
             <div className="text-muted-foreground">{user.email}</div>
             <div className="mt-1 text-muted-foreground">
-              Role: <span className="font-medium">{user.role}</span>
+              {user.roles.length > 1 ? "Roles" : "Role"}:{" "}
+              <span className="font-medium">
+                {user.roles.length ? user.roles.join(" · ") : "—"}
+              </span>
             </div>
           </div>
         )}

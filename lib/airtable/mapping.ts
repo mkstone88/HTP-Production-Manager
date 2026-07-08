@@ -13,6 +13,11 @@ export const tables = {
   contacts: "Contacts",
   materialsExpenses: "Materials Expenses",
   users: "App Users",
+  // Sales / appointment-setting side (parallel-build "NEW - " tables).
+  opportunities: "NEW - Opportunities",
+  opportunityContacts: "NEW - Contacts",
+  sourceMapping: "NEW - Source Mapping",
+  weeklyGoals: "NEW - Weekly Goals",
 } as const;
 
 /**
@@ -120,9 +125,82 @@ export const materialsExpenseFields = {
 export const userFields = {
   name: "Name",                  // singleLineText (primary)
   email: "Email",                // email — login identifier
-  role: "Role",                  // singleSelect: admin | user
+  roles: "Roles",                // multipleSelects: Admin | Office Admin | Production Manager | Sales | Subcontractor
+  legacyRole: "Role",            // singleSelect (legacy admin/user) — read-only fallback during migration
   password: "Password",          // singleLineText — PBKDF2 hash string
   active: "Active",              // checkbox — disable login without deleting
+} as const;
+
+// --- Sales / appointment-setting side ---------------------------------------
+// See lib/airtable/{opportunities,leads,sources}.ts for how these are consumed.
+export const opportunityFields = {
+  name: "Opportunity",                         // singleLineText (primary)
+  contact: "Contact",                          // linked record -> NEW - Contacts
+  emailFromContact: "Email (from Contact)",    // lookup (read-only) — for reconcile matching
+  phoneFromContact: "Phone (from Contact)",    // lookup (read-only) — for the setter queue
+  source: "Source",                            // singleSelect (canonical)
+  rawSource: "Raw Source",                     // singleLineText (pre-normalization)
+  captureMethod: "Capture Method",             // singleSelect
+  jobType: "Job Type",                         // singleSelect
+  leadType: "Lead Type",                       // singleSelect
+  setterStatus: "Setter Status",               // singleSelect
+  disqualifyReason: "Disqualify Reason",       // singleSelect
+  appointmentStatus: "Appointment Status",     // singleSelect
+  leadCreatedAt: "Lead Created At",            // dateTime — attribution anchor
+  firstContactedAt: "First Contacted At",      // dateTime
+  lastContactedAt: "Last Contacted At",        // dateTime
+  bookedAt: "Booked At",                       // dateTime
+  disqualifiedAt: "Disqualified At",           // dateTime
+  abandonedAt: "Abandoned At",                 // dateTime
+  appointmentAt: "Appointment Date/Time",      // dateTime
+  nextFollowUpDate: "Next Follow-Up Date",     // dateTime — cadence
+  contactAttempts: "# Contact Attempts",       // number
+  lastAction: "Last Action",                   // singleLineText (audit)
+  lastActionBy: "Last Action By",              // singleLineText (audit — user email)
+  lastActionAt: "Last Action At",              // dateTime (audit)
+  proposalSent: "Proposal Sent",               // checkbox
+  proposalSentDate: "Proposal Sent Date",      // date
+  proposalAmount: "Proposal Amount (Sent)",    // currency
+  wonAmount: "Won Amount (Accepted)",          // currency
+  saleOutcome: "Sale Outcome",                 // singleSelect: Won | Lost | Pending
+  reasonLost: "Reason Lost",                   // singleLineText
+  dateOfSale: "Date of Sale",                  // date
+  estimator: "Estimator",                      // singleLineText
+  matchEmail: "Match Email",                   // singleLineText (correlation key)
+  ghlContactId: "GHL Contact ID",              // singleLineText (correlation key)
+  ghlOpportunityId: "GHL Opportunity ID",      // singleLineText (correlation key)
+  paintScoutQuoteId: "Paint Scout Quote ID",   // singleLineText (correlation key)
+  notes: "Notes",                              // multilineText
+} as const;
+
+export const opportunityContactFields = {
+  name: "Full Name",                           // singleLineText (primary)
+  firstName: "First Name",
+  lastName: "Last Name",
+  email: "Email",
+  phone: "Phone",
+  street: "Street Address",
+  city: "City",
+  state: "State",
+  zip: "Zip",
+  ghlContactId: "GHL Contact ID",
+  notes: "Notes",
+  opportunities: "NEW - Opportunities",        // reverse link -> the contact's opportunities
+} as const;
+
+export const sourceMappingFields = {
+  rawValue: "Raw Value",
+  canonicalSource: "Canonical Source",
+  notes: "Notes",
+} as const;
+
+export const weeklyGoalFields = {
+  weekStart: "Week Start",                     // date (Monday of the week)
+  leads: "Leads Goal",
+  appts: "Appointments Goal",
+  jobsSold: "Jobs Sold Goal",
+  dollarsSold: "Dollars Sold Goal",
+  invoiced: "Invoiced Goal",
 } as const;
 
 export type JobFieldKey = keyof typeof jobFields;
@@ -130,3 +208,4 @@ export type SubFieldKey = keyof typeof subFields;
 export type ContactFieldKey = keyof typeof contactFields;
 export type MaterialsExpenseFieldKey = keyof typeof materialsExpenseFields;
 export type UserFieldKey = keyof typeof userFields;
+export type OpportunityFieldKey = keyof typeof opportunityFields;

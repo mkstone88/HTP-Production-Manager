@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { errorResponse } from "@/lib/airtable/errors";
 import { UsersRepo } from "@/lib/airtable/users";
-import { UserRole } from "@/lib/airtable/types";
+import { Role } from "@/lib/airtable/types";
 import { hashPassword } from "@/lib/auth";
 import { requireAdmin } from "@/lib/session";
 
@@ -22,7 +22,7 @@ export async function GET() {
 const CreateBody = z.object({
   name: z.string().min(1),
   email: z.string().email(),
-  role: UserRole,
+  roles: z.array(Role).default([]),
   password: z.string().min(8),
   active: z.boolean().optional(),
 });
@@ -43,7 +43,7 @@ export async function POST(req: Request) {
     const user = await UsersRepo.create({
       name: body.name,
       email: body.email.toLowerCase(),
-      role: body.role,
+      roles: body.roles,
       active: body.active ?? true,
       passwordHash: await hashPassword(body.password),
     });
