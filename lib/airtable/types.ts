@@ -320,6 +320,29 @@ export const FunnelRow = z.object({
 });
 export type FunnelRow = z.infer<typeof FunnelRow>;
 
+/**
+ * One open (pending) proposal on the sales Deals board. Response contract for
+ * GET /api/sales/deals. `waiting` = a future follow-up is scheduled, so the
+ * deal rests in the lower section until that time arrives.
+ */
+export const DealRow = z.object({
+  id: z.string(),
+  name: z.string(),                         // contact name (falls back to opportunity)
+  amount: z.number(),                       // proposal amount sent
+  sentDate: z.string(),                     // YYYY-MM-DD proposal sent ("" if unknown)
+  daysOut: z.number().nullable(),           // days since the proposal was sent
+  estimator: z.string(),
+  source: z.string(),
+  jobType: z.string(),
+  followUpAt: z.string().optional(),        // salesman's next check-in (ISO)
+  waiting: z.boolean(),                     // followUpAt is in the future
+  notes: z.string().optional(),
+  phone: z.string().optional(),
+  email: z.string().optional(),
+  ghlUrl: z.string().optional(),            // deep link to the contact in GoHighLevel
+});
+export type DealRow = z.infer<typeof DealRow>;
+
 /** A lead whose Source needs assigning/correcting. GET /api/sources/review + search. */
 export const SourceReviewRow = z.object({
   id: z.string(),

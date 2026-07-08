@@ -153,8 +153,9 @@ export const opportunityFields = {
   disqualifiedAt: "Disqualified At",           // dateTime
   abandonedAt: "Abandoned At",                 // dateTime
   appointmentAt: "Appointment Date/Time",      // dateTime
-  nextFollowUpDate: "Next Follow-Up Date",     // dateTime — cadence
+  nextFollowUpDate: "Next Follow-Up Date",     // dateTime — setter cadence
   callbackAt: "Callback At",                   // dateTime — customer-requested callback; overrides cadence
+  salesFollowUpAt: "Sales Follow-Up At",       // dateTime — salesman's next check-in on a pending proposal
   contactAttempts: "# Contact Attempts",       // number
   lastAction: "Last Action",                   // singleLineText (audit)
   lastActionBy: "Last Action By",              // singleLineText (audit — user email)

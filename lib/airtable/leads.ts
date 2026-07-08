@@ -3,6 +3,7 @@ import "server-only";
 import { computeNextFollowUp, daysSince, queueState } from "@/lib/leads/cadence";
 import { ghlContactUrl } from "@/lib/ghl";
 import { airtable, type AirtableRecord } from "./client";
+import { prependNote } from "./notes";
 import { opportunityFields, tables } from "./mapping";
 import { OpportunityContactsRepo } from "./opportunity-contacts";
 import type { DisqualifyReason, Lead } from "./types";
@@ -82,19 +83,6 @@ function audit(action: string, by: string): OppFields {
     [f.lastActionBy]: by,
     [f.lastActionAt]: now(),
   };
-}
-
-/** Prepend a dated call-log line to the existing notes (newest first). */
-function prependNote(existing: unknown, note: string): string {
-  const stamp = new Date().toLocaleString("en-US", {
-    timeZone: "America/Chicago",
-    month: "numeric",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-  const prior = opt(existing);
-  return `[${stamp}] ${note.trim()}${prior ? `\n${prior}` : ""}`;
 }
 
 /** Queue sort rank — see QueueState in lib/leads/cadence.ts. */
