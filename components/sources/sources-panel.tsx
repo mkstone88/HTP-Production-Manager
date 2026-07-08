@@ -154,7 +154,7 @@ function SourceRow({
 }) {
   const qc = useQueryClient();
   const [source, setSource] = useState<string>("");
-  const [remember, setRemember] = useState(true);
+  const [remember, setRemember] = useState(false);
   const [note, setNote] = useState<string | null>(null);
 
   const save = useMutation({
