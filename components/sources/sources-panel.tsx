@@ -255,46 +255,96 @@ function monthLabel(m: string) {
   return `${names[Number(mm)] || mm} ${y}`;
 }
 
+type FunnelView = "byMonth" | "bySource";
+
+/** The event month a row's stage lands in, honoring the cohort/activity basis. */
+function stageMonths(r: FunnelRow, basis: Basis) {
+  const leadM = r.leadMonth;
+  return {
+    leadM,
+    apptM: basis === "cohort" ? leadM : r.apptMonth,
+    propM: basis === "cohort" ? leadM : r.proposalMonth,
+    wonM: basis === "cohort" ? leadM : r.wonMonth,
+  };
+}
+
 function FunnelTab() {
   const q = useQuery({
     queryKey: ["analytics", "funnel"],
     queryFn: () => getJson<{ rows: FunnelRow[] }>("/api/analytics/funnel"),
   });
   const rows = useMemo(() => q.data?.rows ?? [], [q.data]);
+  const [view, setView] = useState<FunnelView>("byMonth");
   const [source, setSource] = useState("All");
   const [basis, setBasis] = useState<Basis>("activity");
+  const [month, setMonth] = useState<string>("");
 
   const sources = useMemo(
     () => [...new Set(rows.map((r) => r.source).filter(Boolean))].sort(),
     [rows],
   );
 
-  const { months, total } = useMemo(() => {
+  // Every month that shows any activity, newest first — powers the By-source picker.
+  const allMonths = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of rows) {
+      for (const m of [r.leadMonth, r.apptMonth, r.proposalMonth, r.wonMonth]) {
+        if (m) set.add(m);
+      }
+    }
+    return [...set].sort((a, b) => b.localeCompare(a));
+  }, [rows]);
+
+  // Default the month picker to the newest month once data lands.
+  const selectedMonth = month || allMonths[0] || "";
+
+  // --- By month: rows are months (optionally scoped to one source) -----------
+  const { months, monthTotal } = useMemo(() => {
     const scoped = rows.filter((r) => source === "All" || r.source === source);
     const byMonth = new Map<string, Agg>();
-    const total = emptyAgg();
+    const monthTotal = emptyAgg();
     for (const r of scoped) {
-      // In cohort mode every stage is credited to the lead's created month.
-      const leadM = r.leadMonth;
-      const apptM = basis === "cohort" ? leadM : r.apptMonth;
-      const propM = basis === "cohort" ? leadM : r.proposalMonth;
-      const wonM = basis === "cohort" ? leadM : r.wonMonth;
-
+      const { leadM, apptM, propM, wonM } = stageMonths(r, basis);
       bump(byMonth, leadM, (a) => a.leads++);
       if (r.appt) bump(byMonth, apptM, (a) => a.appts++);
       if (r.proposal) bump(byMonth, propM, (a) => a.proposals++);
       if (r.won) bump(byMonth, wonM, (a) => { a.sold++; a.revenue += r.revenue; });
 
-      if (r.leadMonth) total.leads++;
-      if (r.appt) total.appts++;
-      if (r.proposal) total.proposals++;
-      if (r.won) { total.sold++; total.revenue += r.revenue; }
+      if (r.leadMonth) monthTotal.leads++;
+      if (r.appt) monthTotal.appts++;
+      if (r.proposal) monthTotal.proposals++;
+      if (r.won) { monthTotal.sold++; monthTotal.revenue += r.revenue; }
     }
     const months = [...byMonth.entries()]
       .sort((a, b) => b[0].localeCompare(a[0]))
-      .map(([month, a]) => ({ month, ...a }));
-    return { months, total };
+      .map(([m, a]) => ({ month: m, ...a }));
+    return { months, monthTotal };
   }, [rows, source, basis]);
+
+  // --- By source: rows are sources for one selected month --------------------
+  const { sourceRows, sourceTotal } = useMemo(() => {
+    const bySource = new Map<string, Agg>();
+    const sourceTotal = emptyAgg();
+    const bumpSource = (src: string, apply: (a: Agg) => void) => {
+      if (!bySource.has(src)) bySource.set(src, emptyAgg());
+      apply(bySource.get(src)!);
+    };
+    for (const r of rows) {
+      const src = r.source || "Unknown";
+      const { leadM, apptM, propM, wonM } = stageMonths(r, basis);
+      if (leadM === selectedMonth) { bumpSource(src, (a) => a.leads++); sourceTotal.leads++; }
+      if (r.appt && apptM === selectedMonth) { bumpSource(src, (a) => a.appts++); sourceTotal.appts++; }
+      if (r.proposal && propM === selectedMonth) { bumpSource(src, (a) => a.proposals++); sourceTotal.proposals++; }
+      if (r.won && wonM === selectedMonth) {
+        bumpSource(src, (a) => { a.sold++; a.revenue += r.revenue; });
+        sourceTotal.sold++; sourceTotal.revenue += r.revenue;
+      }
+    }
+    const sourceRows = [...bySource.entries()]
+      .sort((a, b) => b[1].leads - a[1].leads || b[1].revenue - a[1].revenue)
+      .map(([src, a]) => ({ source: src, ...a }));
+    return { sourceRows, sourceTotal };
+  }, [rows, basis, selectedMonth]);
 
   if (q.isLoading) return <p className="p-4 text-sm text-muted-foreground sm:p-6">Loading funnel…</p>;
   if (q.error) return <div className="p-4 sm:p-6"><ErrorBox error={q.error} /></div>;
@@ -302,17 +352,48 @@ function FunnelTab() {
   return (
     <div className="space-y-4 p-4 sm:p-6">
       <div className="flex flex-wrap items-center gap-3">
-        <label className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-          <span className="font-semibold">Lead source</span>
-          <select
-            value={source}
-            onChange={(e) => setSource(e.target.value)}
-            className="rounded-md border border-input bg-background px-2 py-1.5 text-sm"
+        {/* View toggle: months down the side, or sources for one month */}
+        <div className="inline-flex overflow-hidden rounded-md border border-input text-xs">
+          <button
+            type="button"
+            onClick={() => setView("byMonth")}
+            className={cn("px-3 py-1.5 font-medium", view === "byMonth" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground")}
           >
-            <option value="All">All sources</option>
-            {sources.map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
-        </label>
+            By month
+          </button>
+          <button
+            type="button"
+            onClick={() => setView("bySource")}
+            className={cn("border-l border-input px-3 py-1.5 font-medium", view === "bySource" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground")}
+          >
+            By source
+          </button>
+        </div>
+
+        {view === "byMonth" ? (
+          <label className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+            <span className="font-semibold">Lead source</span>
+            <select
+              value={source}
+              onChange={(e) => setSource(e.target.value)}
+              className="rounded-md border border-input bg-background px-2 py-1.5 text-sm"
+            >
+              <option value="All">All sources</option>
+              {sources.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </label>
+        ) : (
+          <label className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+            <span className="font-semibold">Month</span>
+            <select
+              value={selectedMonth}
+              onChange={(e) => setMonth(e.target.value)}
+              className="rounded-md border border-input bg-background px-2 py-1.5 text-sm"
+            >
+              {allMonths.map((m) => <option key={m} value={m}>{monthLabel(m)}</option>)}
+            </select>
+          </label>
+        )}
 
         <div className="inline-flex overflow-hidden rounded-md border border-input text-xs">
           <button
@@ -336,14 +417,30 @@ function FunnelTab() {
         <table className="w-full min-w-[720px] text-sm">
           <thead>
             <tr className="border-b text-left text-[11px] uppercase tracking-wider text-muted-foreground">
-              <th className="px-4 py-2.5 font-semibold">Month</th>
+              <th className="px-4 py-2.5 font-semibold">{view === "byMonth" ? "Month" : "Source"}</th>
               <Th>Leads</Th><Th>Appts</Th><Th>Proposals</Th><Th>Sold</Th><Th>Revenue</Th>
               <Th>Book %</Th><Th>Close %</Th><Th>$/Lead</Th>
             </tr>
           </thead>
           <tbody>
-            <FunnelTr label="All time" a={total} bold />
-            {months.map((m) => <FunnelTr key={m.month} label={monthLabel(m.month)} a={m} />)}
+            {view === "byMonth" ? (
+              <>
+                <FunnelTr label="All time" a={monthTotal} bold />
+                {months.map((m) => <FunnelTr key={m.month} label={monthLabel(m.month)} a={m} />)}
+              </>
+            ) : (
+              <>
+                <FunnelTr label={`${monthLabel(selectedMonth)} · all sources`} a={sourceTotal} bold />
+                {sourceRows.map((s) => <FunnelTr key={s.source} label={s.source} a={s} />)}
+                {sourceRows.length === 0 && (
+                  <tr className="border-t">
+                    <td colSpan={9} className="px-4 py-6 text-center text-sm text-muted-foreground">
+                      No activity in {monthLabel(selectedMonth)}.
+                    </td>
+                  </tr>
+                )}
+              </>
+            )}
           </tbody>
         </table>
       </Card>
