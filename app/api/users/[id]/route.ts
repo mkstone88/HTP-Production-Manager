@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { errorResponse } from "@/lib/airtable/errors";
 import { UsersRepo } from "@/lib/airtable/users";
-import { UserRole, type AppUser } from "@/lib/airtable/types";
+import { Role, type AppUser } from "@/lib/airtable/types";
 import { hashPassword } from "@/lib/auth";
 import { requireAdmin } from "@/lib/session";
 
@@ -13,7 +13,7 @@ type Ctx = { params: Promise<{ id: string }> };
 
 /** Guard against locking everyone out by removing the only active admin. */
 function isLastActiveAdmin(users: AppUser[], targetId: string): boolean {
-  const activeAdmins = users.filter((u) => u.role === "admin" && u.active);
+  const activeAdmins = users.filter((u) => u.roles.includes("Admin") && u.active);
   return activeAdmins.length === 1 && activeAdmins[0].id === targetId;
 }
 
@@ -31,7 +31,7 @@ export async function GET(_req: Request, { params }: Ctx) {
 const PatchBody = z.object({
   name: z.string().min(1).optional(),
   email: z.string().email().optional(),
-  role: UserRole.optional(),
+  roles: z.array(Role).optional(),
   active: z.boolean().optional(),
   password: z.string().min(8).optional(),
 });
@@ -55,7 +55,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
 
     // Block demoting/deactivating the last active admin.
     const stillActiveAdmin =
-      (body.role ?? target.role) === "admin" && (body.active ?? target.active);
+      (body.roles ?? target.roles).includes("Admin") && (body.active ?? target.active);
     if (!stillActiveAdmin) {
       const users = await UsersRepo.list();
       if (isLastActiveAdmin(users, id)) {
@@ -69,7 +69,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
     const user = await UsersRepo.update(id, {
       name: body.name,
       email: body.email?.toLowerCase(),
-      role: body.role,
+      roles: body.roles,
       active: body.active,
       passwordHash: body.password ? await hashPassword(body.password) : undefined,
     });

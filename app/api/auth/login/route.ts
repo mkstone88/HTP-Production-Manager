@@ -40,7 +40,7 @@ export async function POST(req: Request) {
 
     const { token, expiresAt } = await issueSession({
       uid: found.user.id,
-      role: found.user.role,
+      roles: found.user.roles,
     });
     const res = NextResponse.json({ ok: true, user: found.user });
     res.cookies.set({

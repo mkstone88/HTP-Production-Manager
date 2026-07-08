@@ -8,14 +8,13 @@
  *  2. Password hashing/verification (PBKDF2-SHA256) for the App Users table.
  */
 
+import { isRole, type Role } from "@/lib/roles";
+
 const SESSION_COOKIE = "htp_session";
 const SESSION_TTL_DAYS = 30;
 const SESSION_TTL_MS = SESSION_TTL_DAYS * 24 * 60 * 60 * 1000;
 
 export { SESSION_COOKIE };
-
-export type SessionRole = "admin" | "user";
-const ROLES: readonly SessionRole[] = ["admin", "user"];
 
 function getSecretRaw(): string {
   const s = process.env.AUTH_SECRET;
@@ -71,16 +70,18 @@ async function sign(payload: string): Promise<string> {
 }
 
 /** Identity carried inside the signed session cookie. */
-export type Session = { uid: string; role: SessionRole; iat: number; exp: number };
+export type Session = { uid: string; roles: Role[]; iat: number; exp: number };
 
 export async function issueSession(input: {
   uid: string;
-  role: SessionRole;
+  roles: Role[];
 }): Promise<{ token: string; expiresAt: Date }> {
   const iat = Date.now();
   const exp = iat + SESSION_TTL_MS;
-  // uid (Airtable rec id) and role contain no dots, so a dot-delimited token is safe.
-  const payload = `${input.uid}.${input.role}.${iat}.${exp}`;
+  // uid (rec id) and role names contain no dots, so a dot-delimited token is
+  // safe; roles are comma-joined (no role name contains a comma).
+  const rolesCsv = input.roles.join(",");
+  const payload = `${input.uid}.${rolesCsv}.${iat}.${exp}`;
   const sig = await sign(payload);
   return { token: `${payload}.${sig}`, expiresAt: new Date(exp) };
 }
@@ -91,15 +92,15 @@ export async function verifySession(
   if (!token) return null;
   const parts = token.split(".");
   if (parts.length !== 5) return null;
-  const [uid, role, iatStr, expStr, sig] = parts;
-  if (!ROLES.includes(role as SessionRole)) return null;
-  const expectedSig = await sign(`${uid}.${role}.${iatStr}.${expStr}`);
+  const [uid, rolesCsv, iatStr, expStr, sig] = parts;
+  const expectedSig = await sign(`${uid}.${rolesCsv}.${iatStr}.${expStr}`);
   if (!timingSafeEqualHex(sig, expectedSig)) return null;
   const iat = Number(iatStr);
   const exp = Number(expStr);
   if (!Number.isFinite(iat) || !Number.isFinite(exp)) return null;
   if (Date.now() > exp) return null;
-  return { uid, role: role as SessionRole, iat, exp };
+  const roles = rolesCsv ? rolesCsv.split(",").filter(isRole) : [];
+  return { uid, roles, iat, exp };
 }
 
 // ---- Password hashing (PBKDF2-SHA256) ---------------------------------------

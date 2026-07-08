@@ -3,36 +3,55 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
 import {
+  BarChart3,
   Calendar,
+  CalendarCheck,
   ClipboardList,
   DollarSign,
+  Ellipsis,
+  GitCompare,
+  type LucideIcon,
   LogOut,
   Settings,
   ShieldCheck,
+  UserPlus,
   Users,
+  Waypoints,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { useCurrentUser } from "@/components/use-current-user";
+import { canAccess } from "@/lib/roles";
 import { cn } from "@/lib/utils";
 
-const NAV = [
+type NavItem = { href: string; label: string; icon: LucideIcon };
+
+const NAV: NavItem[] = [
   { href: "/schedule", label: "Schedule", icon: Calendar },
   { href: "/jobs", label: "Jobs", icon: ClipboardList },
   { href: "/subs", label: "Subs", icon: Users },
   { href: "/costing", label: "Costing", icon: DollarSign },
-] as const;
+  { href: "/sales", label: "Sales", icon: BarChart3 },
+  { href: "/scorecard", label: "Scorecard", icon: CalendarCheck },
+  { href: "/leads", label: "Leads", icon: UserPlus },
+  { href: "/reconcile", label: "Reconcile", icon: GitCompare },
+  { href: "/sources", label: "Sources", icon: Waypoints },
+  { href: "/users", label: "Users", icon: ShieldCheck },
+];
 
-const ADMIN_NAV = [{ href: "/users", label: "Users", icon: ShieldCheck }] as const;
+// How many items fit on the mobile bottom bar before the rest roll into "More".
+const MOBILE_PRIMARY = 4;
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { data: user } = useCurrentUser();
+  const roles = useMemo(() => user?.roles ?? [], [user]);
+  const [moreOpen, setMoreOpen] = useState(false);
 
-  const isAdmin = user?.role === "admin";
-  const navItems = isAdmin ? [...NAV, ...ADMIN_NAV] : NAV;
+  const nav = useMemo(() => NAV.filter((item) => canAccess(roles, item.href)), [roles]);
 
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -40,9 +59,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     router.refresh();
   }
 
-  function isActive(href: string) {
-    return pathname === href || pathname.startsWith(`${href}/`);
-  }
+  const isActive = (href: string) =>
+    pathname === href || pathname.startsWith(`${href}/`);
+
+  const primary = nav.length > 5 ? nav.slice(0, MOBILE_PRIMARY) : nav;
+  const overflow = nav.length > 5 ? nav.slice(MOBILE_PRIMARY) : [];
+  const overflowActive = overflow.some((i) => isActive(i.href));
+  const mobileCols = primary.length + (overflow.length ? 1 : 0);
 
   return (
     <div className="flex min-h-dvh flex-col md:flex-row">
@@ -59,10 +82,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           />
         </div>
         <div className="px-5 pb-3 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-          Production Manager
+          Hometown Ops
         </div>
-        <nav className="flex flex-1 flex-col gap-1 px-2">
-          {navItems.map((item) => {
+        <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-2">
+          {nav.map((item) => {
             const active = isActive(item.href);
             const Icon = item.icon;
             return (
@@ -84,14 +107,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </nav>
         <div className="flex flex-col gap-1 border-t px-2 py-3">
           {user && (
-            <div className="flex items-center gap-2 px-3 py-1.5">
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-medium">{user.name}</div>
-                <div className="truncate text-xs text-muted-foreground">
-                  {user.email}
-                </div>
+            <div className="px-3 py-1.5">
+              <div className="truncate text-sm font-medium">{user.name || user.email}</div>
+              <div className="truncate text-xs text-muted-foreground">
+                {roles.length ? roles.join(" · ") : "No roles assigned"}
               </div>
-              <RoleChip role={user.role} />
             </div>
           )}
           <Link href="/account">
@@ -114,7 +134,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Mobile top bar */}
       <header className="flex items-center justify-between border-b bg-background px-4 py-3 md:hidden">
-        <Link href="/schedule" className="flex items-center">
+        <Link href="/" className="flex items-center">
           <Image
             src="/branding/logo.jpg"
             alt="Hometown Painting"
@@ -139,53 +159,97 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {/* Main content */}
       <main className="flex flex-1 flex-col pb-16 md:pb-0">{children}</main>
 
+      {/* Mobile "More" sheet */}
+      {moreOpen && overflow.length > 0 && (
+        <div className="fixed inset-0 z-40 md:hidden" onClick={() => setMoreOpen(false)}>
+          <div className="absolute inset-0 bg-black/30" />
+          <div
+            className="absolute inset-x-0 bottom-16 mx-2 rounded-xl border bg-background p-2 shadow-lg"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {overflow.map((item) => {
+              const active = isActive(item.href);
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setMoreOpen(false)}
+                  className={cn(
+                    "flex h-12 items-center gap-3 rounded-md px-3 text-sm font-medium",
+                    active ? "bg-accent text-accent-foreground" : "text-foreground hover:bg-muted",
+                  )}
+                >
+                  <Icon className="size-5" />
+                  {item.label}
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Mobile bottom nav */}
-      <nav
-        className="fixed inset-x-0 bottom-0 z-30 grid border-t bg-background pb-[env(safe-area-inset-bottom)] md:hidden"
-        style={{ gridTemplateColumns: `repeat(${navItems.length}, minmax(0, 1fr))` }}
-        aria-label="Primary"
-      >
-        {navItems.map((item) => {
-          const active = isActive(item.href);
-          const Icon = item.icon;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
+      {nav.length > 0 && (
+        <nav
+          className="fixed inset-x-0 bottom-0 z-30 grid border-t bg-background pb-[env(safe-area-inset-bottom)] md:hidden"
+          style={{ gridTemplateColumns: `repeat(${mobileCols}, minmax(0, 1fr))` }}
+          aria-label="Primary"
+        >
+          {primary.map((item) => {
+            const active = isActive(item.href);
+            const Icon = item.icon;
+            return <BottomLink key={item.href} href={item.href} label={item.label} Icon={Icon} active={active} />;
+          })}
+          {overflow.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setMoreOpen((v) => !v)}
+              aria-label="More"
               className={cn(
                 "relative flex flex-col items-center justify-center gap-1 py-2 text-xs transition-colors",
-                active
+                overflowActive || moreOpen
                   ? "text-[var(--htp-blue)] dark:text-[var(--primary)]"
                   : "text-muted-foreground",
               )}
             >
-              {active && (
-                <span
-                  aria-hidden
-                  className="absolute inset-x-6 top-0 h-0.5 rounded-full bg-[var(--htp-blue)] dark:bg-[var(--primary)]"
-                />
-              )}
-              <Icon className="size-5" />
-              {item.label}
-            </Link>
-          );
-        })}
-      </nav>
+              <Ellipsis className="size-5" />
+              More
+            </button>
+          )}
+        </nav>
+      )}
     </div>
   );
 }
 
-function RoleChip({ role }: { role: "admin" | "user" }) {
+function BottomLink({
+  href,
+  label,
+  Icon,
+  active,
+}: {
+  href: string;
+  label: string;
+  Icon: LucideIcon;
+  active: boolean;
+}) {
   return (
-    <span
+    <Link
+      href={href}
       className={cn(
-        "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide",
-        role === "admin"
-          ? "bg-red-100 text-red-900 dark:bg-red-900/30 dark:text-red-200"
-          : "bg-muted text-muted-foreground",
+        "relative flex flex-col items-center justify-center gap-1 py-2 text-xs transition-colors",
+        active ? "text-[var(--htp-blue)] dark:text-[var(--primary)]" : "text-muted-foreground",
       )}
     >
-      {role}
-    </span>
+      {active && (
+        <span
+          aria-hidden
+          className="absolute inset-x-6 top-0 h-0.5 rounded-full bg-[var(--htp-blue)] dark:bg-[var(--primary)]"
+        />
+      )}
+      <Icon className="size-5" />
+      {label}
+    </Link>
   );
 }

@@ -11,6 +11,11 @@
   --htp-red: #e11d2a;
   --htp-red-dark: #b81621;
   --htp-red-soft: #fce8ea;
+  /* Semantic status accents for analytics (won / positive, warning / below-goal). */
+  --htp-green: #15803d;
+  --htp-green-soft: #e7f6ec;
+  --htp-amber: #b45309;
+  --htp-amber-soft: #fdf1de;
 
   --radius: 0.625rem;
   --background: oklch(1 0 0);
@@ -29,6 +34,10 @@
   --accent-foreground: var(--htp-blue-dark);
   --destructive: var(--htp-red);
   --destructive-foreground: #ffffff;
+  --success: var(--htp-green);
+  --success-foreground: #ffffff;
+  --warning: var(--htp-amber);
+  --warning-foreground: #ffffff;
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: var(--htp-blue);
@@ -59,6 +68,10 @@
   --accent-foreground: oklch(0.985 0 0);
   --destructive: #f04250;
   --destructive-foreground: #ffffff;
+  --success: #4ade80;
+  --success-foreground: #06210f;
+  --warning: #fbbf24;
+  --warning-foreground: #2a1a05;
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: #4d7fc7;
@@ -89,6 +102,10 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);

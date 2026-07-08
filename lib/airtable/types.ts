@@ -1,8 +1,10 @@
 import { z } from "zod";
 
+import { ROLES } from "@/lib/roles";
+
 /**
  * Airtable Status singleSelect on Projects.
- * Source of truth: the four choices in the Hometown Operations base.
+ * Source of truth: the choices in the Hometown Operations base.
  */
 export const JobStatus = z.enum([
   "Proposal Accepted",
@@ -10,7 +12,6 @@ export const JobStatus = z.enum([
   "In Progress",
   "On Hold",
   "Completed",
-  "On Hold",
 ]);
 export type JobStatus = z.infer<typeof JobStatus>;
 
@@ -126,12 +127,12 @@ export const MaterialsExpense = z.object({
 export type MaterialsExpense = z.infer<typeof MaterialsExpense>;
 
 /**
- * App login roles.
- *  - admin: full access, including managing other users.
- *  - user:  full access to jobs/subs/contacts, but cannot manage users.
+ * App access role. Vocabulary lives in lib/roles.ts (shared with middleware).
+ * A user may hold several — Admin is a superset that can reach everything and
+ * manage users.
  */
-export const UserRole = z.enum(["admin", "user"]);
-export type UserRole = z.infer<typeof UserRole>;
+export const Role = z.enum(ROLES);
+export type Role = z.infer<typeof Role>;
 
 /**
  * A login account (Airtable "App Users"). Never carries the password hash —
@@ -141,10 +142,13 @@ export const AppUser = z.object({
   id: z.string(),
   name: z.string(),
   email: z.string(),
-  role: UserRole,
+  roles: z.array(Role),
   active: z.boolean(),
 });
 export type AppUser = z.infer<typeof AppUser>;
+
+/** The identity carried inside the signed session cookie. */
+export type SessionUser = { uid: string; roles: Role[] };
 
 export const Contact = z.object({
   id: z.string(),
@@ -159,3 +163,291 @@ export const Contact = z.object({
   zip: z.string().optional(),
 });
 export type Contact = z.infer<typeof Contact>;
+
+/* Sales / appointment-setting side                                           */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Controlled vocabularies for the Opportunity single-selects. These mirror the
+ * Airtable choices and are the stable vocabulary for UI selects and filters.
+ *
+ * NOTE: reads (`fromRecord`) do NOT hard-validate against these — Airtable is
+ * the source of truth and may grow choices, so the raw Opportunity fields are
+ * typed as plain strings. Use these enums to build pickers, not to gate reads.
+ */
+export const SaleOutcome = z.enum(["Won", "Lost", "Pending"]);
+export type SaleOutcome = z.infer<typeof SaleOutcome>;
+
+export const SetterStatus = z.enum([
+  "Open",
+  "Reschedule Needed",
+  "Booked",
+  "Disqualified",
+  "Lost",
+  "Abandoned",
+]);
+export type SetterStatus = z.infer<typeof SetterStatus>;
+
+export const LeadSource = z.enum([
+  "Google LSA",
+  "Google PPC",
+  "Website / Organic",
+  "Facebook",
+  "Referral",
+  "Repeat Customer",
+  "BNI",
+  "B2B",
+  "Job Site",
+  "AI / LLM",
+  "Other",
+]);
+export type LeadSource = z.infer<typeof LeadSource>;
+
+export const OppJobType = z.enum([
+  "Interior",
+  "Exterior",
+  "Cabinets",
+  "Staining",
+  "Other",
+]);
+export type OppJobType = z.infer<typeof OppJobType>;
+
+/** Exactly the choices on the Airtable "Disqualify Reason" single-select. */
+export const DisqualifyReason = z.enum([
+  "Outside Service Area",
+  "Project Too Small",
+  "Price-Only Shopper",
+  "Timing",
+  "Wrong Service Type",
+]);
+export type DisqualifyReason = z.infer<typeof DisqualifyReason>;
+
+/**
+ * The three terminal outcomes a setter can assign a lead. Open / Reschedule
+ * Needed are working states; Lost / Junk are legacy Setter Status values kept
+ * out of the setter workflow.
+ */
+export const LeadOutcome = z.enum(["Booked", "Disqualified", "Abandoned"]);
+export type LeadOutcome = z.infer<typeof LeadOutcome>;
+
+/** Working (non-terminal) setter statuses — the leads that still need work. */
+export const LEAD_WORKING_STATUSES = ["Open", "Reschedule Needed"] as const;
+
+/**
+ * Opportunity (= Airtable "NEW - Opportunities" record), flattened for the app.
+ * Select-like fields are plain strings on purpose (Airtable is source of truth);
+ * the vocab enums above are for building UI, not validating reads.
+ */
+export const Opportunity = z.object({
+  id: z.string(),
+  name: z.string(),
+  contactId: z.string().optional(),         // Airtable record ID of NEW - Contacts
+  emailFromContact: z.string().optional(),  // lookup from the linked contact
+  source: z.string().optional(),
+  rawSource: z.string().optional(),
+  captureMethod: z.string().optional(),
+  jobType: z.string().optional(),
+  leadType: z.string().optional(),
+  setterStatus: z.string().optional(),
+  disqualifyReason: z.string().optional(),
+  appointmentStatus: z.string().optional(),
+  leadCreatedAt: z.string().optional(),     // ISO datetime
+  firstContactedAt: z.string().optional(),
+  lastContactedAt: z.string().optional(),
+  bookedAt: z.string().optional(),
+  disqualifiedAt: z.string().optional(),
+  abandonedAt: z.string().optional(),
+  appointmentAt: z.string().optional(),
+  nextFollowUpDate: z.string().optional(),
+  contactAttempts: z.number().optional(),
+  phone: z.string().optional(),             // "Phone (from Contact)" lookup
+  proposalSent: z.boolean().optional(),
+  proposalSentDate: z.string().optional(),  // YYYY-MM-DD
+  proposalAmount: z.number().optional(),
+  wonAmount: z.number().optional(),
+  saleOutcome: z.string().optional(),
+  reasonLost: z.string().optional(),
+  dateOfSale: z.string().optional(),        // YYYY-MM-DD
+  estimator: z.string().optional(),
+  matchEmail: z.string().optional(),
+  ghlContactId: z.string().optional(),
+  ghlOpportunityId: z.string().optional(),
+  paintScoutQuoteId: z.string().optional(),
+  notes: z.string().optional(),
+  createdTime: z.string().optional(),       // Airtable record createdTime (fallback anchor)
+});
+export type Opportunity = z.infer<typeof Opportunity>;
+
+/**
+ * One decided proposal, flattened for the sales dashboard. Response contract for
+ * `GET /api/analytics/sales`. Win rate = won ÷ all of these; a Pending proposal
+ * counts as effectively lost until it converts (see lib/analytics/sales.ts).
+ */
+export const SalesRow = z.object({
+  id: z.string(),
+  name: z.string(),
+  won: z.boolean(),
+  pending: z.boolean(),
+  jobType: z.string(),
+  source: z.string(),
+  amount: z.number(),
+  city: z.string(),
+  period: z.string(),                       // YYYY-MM (lead-created attribution month)
+  date: z.string(),                         // YYYY-MM-DD — lead created
+  sentDate: z.string(),                     // YYYY-MM-DD — proposal sent ("" if none)
+  acceptedDate: z.string(),                 // YYYY-MM-DD — proposal accepted / date of sale ("" if not won)
+});
+export type SalesRow = z.infer<typeof SalesRow>;
+
+/**
+ * One opportunity reduced to funnel stages, for the source × month view.
+ * Stages nest (a won job counts as having had a proposal and an appointment) so
+ * the funnel stays monotonic. Response contract for GET /api/analytics/funnel.
+ */
+export const FunnelRow = z.object({
+  source: z.string(),
+  month: z.string(),                        // YYYY-MM (lead-created attribution)
+  appt: z.boolean(),
+  proposal: z.boolean(),
+  won: z.boolean(),
+  revenue: z.number(),
+});
+export type FunnelRow = z.infer<typeof FunnelRow>;
+
+/** A lead whose Source needs assigning/correcting. GET /api/sources/review + search. */
+export const SourceReviewRow = z.object({
+  id: z.string(),
+  name: z.string(),
+  email: z.string().optional(),
+  rawSource: z.string().optional(),
+  source: z.string().optional(),
+  createdAt: z.string().optional(),
+});
+export type SourceReviewRow = z.infer<typeof SourceReviewRow>;
+
+/** Optional per-week goals (from a "NEW - Weekly Goals" table, if it exists). */
+export const WeekGoals = z
+  .object({
+    leads: z.number(),
+    appts: z.number(),
+    jobsSold: z.number(),
+    dollarsSold: z.number(),
+    invoiced: z.number(),
+  })
+  .partial();
+export type WeekGoals = z.infer<typeof WeekGoals>;
+
+/**
+ * One week of the scorecard, week-of-activity accounting (Mon–Sun, Central).
+ * Response contract for `GET /api/scorecard`.
+ */
+export const WeekRow = z.object({
+  weekStart: z.string(),                    // YYYY-MM-DD (Monday)
+  label: z.string(),                        // e.g. "Jun 30 – Jul 6"
+  leads: z.number(),
+  appts: z.number(),
+  jobsSold: z.number(),
+  dollarsSold: z.number(),
+  invoiced: z.number(),
+  collected: z.number(),
+  goals: WeekGoals.optional(),
+});
+export type WeekRow = z.infer<typeof WeekRow>;
+
+/**
+ * A lead as the setter queue sees it — an Opportunity flattened with the
+ * contact's name/phone and derived cadence flags. Response contract for
+ * GET /api/leads/queue and /recent.
+ */
+export const Lead = z.object({
+  id: z.string(),
+  name: z.string(),                         // contact full name (falls back to opportunity)
+  email: z.string().optional(),
+  phone: z.string().optional(),
+  source: z.string().optional(),
+  jobType: z.string().optional(),
+  status: z.string().optional(),            // Setter Status
+  disqualifyReason: z.string().optional(),
+  notes: z.string().optional(),
+  createdAt: z.string().optional(),         // Lead Created At
+  firstContactedAt: z.string().optional(),
+  lastContactedAt: z.string().optional(),
+  appointmentAt: z.string().optional(),
+  bookedAt: z.string().optional(),
+  nextFollowUpDate: z.string().optional(),
+  contactAttempts: z.number(),
+  ageDays: z.number().nullable(),
+  overdue: z.boolean(),                     // follow-up is due (or lead is uncontacted & aging)
+});
+export type Lead = z.infer<typeof Lead>;
+
+/* -------------------------------------------------------------------------- */
+/* Reconciliation sweeps (read-only safety net)                               */
+/* -------------------------------------------------------------------------- */
+
+/** A GHL lead that has no matching Airtable opportunity. */
+export const ReconcileGap = z.object({
+  ghlId: z.string(),
+  name: z.string(),
+  email: z.string(),
+  phone: z.string(),
+  source: z.string(),
+  status: z.string(),
+  createdAt: z.string(),
+  reason: z.enum(["not-in-airtable", "no-email-to-match"]),
+});
+export type ReconcileGap = z.infer<typeof ReconcileGap>;
+
+export const ReconcileResult = z.object({
+  ranAt: z.string(),
+  windowDays: z.number(),
+  ghlChecked: z.number(),
+  matched: z.number(),
+  gaps: z.array(ReconcileGap),
+});
+export type ReconcileResult = z.infer<typeof ReconcileResult>;
+
+/** A PaintScout quote that's missing from Airtable or whose outcome disagrees. */
+export const ProposalIssue = z.object({
+  kind: z.enum(["missing", "outcome-mismatch"]),
+  quoteNumber: z.number(),
+  name: z.string(),
+  email: z.string(),
+  psStatus: z.string(),
+  airtableOutcome: z.string().nullable(),
+  total: z.number(),
+  sentDate: z.string().nullable(),
+  detail: z.string(),
+});
+export type ProposalIssue = z.infer<typeof ProposalIssue>;
+
+export const ProposalReport = z.object({
+  ranAt: z.string(),
+  quotesChecked: z.number(),
+  matched: z.number(),
+  issues: z.array(ProposalIssue),
+});
+export type ProposalReport = z.infer<typeof ProposalReport>;
+
+/** Records that collide on a shared GHL id (data-integrity check). */
+export const DupRow = z.object({
+  id: z.string(),
+  label: z.string(),
+  extra: z.string(),
+});
+export type DupRow = z.infer<typeof DupRow>;
+
+export const DupGroup = z.object({
+  ghlId: z.string(),
+  rows: z.array(DupRow),
+});
+export type DupGroup = z.infer<typeof DupGroup>;
+
+export const DuplicateReport = z.object({
+  ranAt: z.string(),
+  opportunities: z.array(DupGroup),
+  contacts: z.array(DupGroup),
+});
+export type DuplicateReport = z.infer<typeof DuplicateReport>;
+
+/* -------------------------------------------------------------------------- */

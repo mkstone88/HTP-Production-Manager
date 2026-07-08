@@ -8,11 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import type { AppUser } from "@/lib/airtable/types";
+import { canAccess, defaultLanding } from "@/lib/roles";
 
 export function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
-  const from = params.get("from") || "/schedule";
+  const from = params.get("from");
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -29,12 +31,19 @@ export function LoginForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
+      const body = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        user?: AppUser;
+      };
       if (!res.ok) {
-        const body = (await res.json().catch(() => ({}))) as { error?: string };
         setError(body.error || "Login failed");
         return;
       }
-      router.replace(from);
+      // Land the user where they came from if their roles allow it, else on
+      // their default section.
+      const roles = body.user?.roles ?? [];
+      const target = from && canAccess(roles, from) ? from : defaultLanding(roles);
+      router.replace(target);
       router.refresh();
     } finally {
       setSubmitting(false);

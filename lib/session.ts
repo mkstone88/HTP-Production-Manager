@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 
 import { UsersRepo } from "@/lib/airtable/users";
 import { AuthError } from "@/lib/airtable/errors";
-import type { AppUser } from "@/lib/airtable/types";
+import type { AppUser, Role } from "@/lib/airtable/types";
 import { SESSION_COOKIE, verifySession, type Session } from "@/lib/auth";
 
 /**
@@ -41,6 +41,28 @@ export async function requireUser(): Promise<AppUser> {
 
 export async function requireAdmin(): Promise<AppUser> {
   const user = await requireUser();
-  if (user.role !== "admin") throw new AuthError("Forbidden — admin only", 403);
+  if (!user.roles.includes("Admin")) {
+    throw new AuthError("Forbidden — admin only", 403);
+  }
+  return user;
+}
+
+/**
+ * True if the session holds at least one of the given roles (Admin always
+ * passes). Cheap — uses the signed cookie's roles, no Airtable read.
+ */
+export function sessionHasRole(session: Session | null, ...roles: Role[]): boolean {
+  if (!session) return false;
+  if (session.roles.includes("Admin")) return true;
+  return roles.some((r) => session.roles.includes(r));
+}
+
+/** Require a signed-in user holding one of `roles` (fresh read; Admin passes). */
+export async function requireRole(...roles: Role[]): Promise<AppUser> {
+  const user = await requireUser();
+  if (user.roles.includes("Admin")) return user;
+  if (!roles.some((r) => user.roles.includes(r))) {
+    throw new AuthError("Forbidden", 403);
+  }
   return user;
 }

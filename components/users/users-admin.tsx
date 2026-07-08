@@ -1,17 +1,16 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, UserPlus } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useCurrentUser } from "@/components/use-current-user";
-import { UserRole, type AppUser } from "@/lib/airtable/types";
+import type { AppUser } from "@/lib/airtable/types";
+import { ROLES, type Role } from "@/lib/roles";
 import { cn } from "@/lib/utils";
-
-const roles = UserRole.options;
 
 async function fetchUsers(): Promise<AppUser[]> {
   const res = await fetch("/api/users", { cache: "no-store" });
@@ -21,12 +20,23 @@ async function fetchUsers(): Promise<AppUser[]> {
 }
 
 export function UsersAdmin() {
-  const { data: me } = useCurrentUser();
-  const { data: users, isLoading, error } = useQuery({
-    queryKey: ["users"],
-    queryFn: fetchUsers,
-  });
+  const qc = useQueryClient();
+  const users = useQuery({ queryKey: ["users"], queryFn: fetchUsers });
   const [adding, setAdding] = useState(false);
+
+  const patch = useMutation({
+    mutationFn: async ({ id, body }: { id: string; body: Record<string, unknown> }) => {
+      const res = await fetch(`/api/users/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = (await res.json()) as { user?: AppUser; error?: string };
+      if (!res.ok || !data.user) throw new Error(data.error || "Update failed");
+      return data.user;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["users"] }),
+  });
 
   return (
     <div className="flex flex-1 flex-col">
@@ -38,45 +48,169 @@ export function UsersAdmin() {
           onClick={() => setAdding((v) => !v)}
         >
           <Plus className="size-4" />
-          Add user
+          New user
         </Button>
       </div>
 
-      {adding && <AddUserForm onDone={() => setAdding(false)} />}
-
-      {isLoading && (
-        <div className="p-4 text-sm text-muted-foreground">Loading users…</div>
+      {adding && (
+        <NewUserForm
+          onDone={() => {
+            setAdding(false);
+            qc.invalidateQueries({ queryKey: ["users"] });
+          }}
+        />
       )}
-      {error && (
+
+      {users.isLoading && (
+        <p className="p-4 text-sm text-muted-foreground">Loading users…</p>
+      )}
+      {users.error && (
         <div className="m-4 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
-          {error instanceof Error ? error.message : "Failed to load users."}
+          {users.error instanceof Error ? users.error.message : "Failed to load users."}
         </div>
       )}
 
       <ul className="divide-y">
-        {(users ?? []).map((u) => (
-          <UserRow key={u.id} user={u} isSelf={u.id === me?.id} />
+        {(users.data ?? []).map((u) => (
+          <UserRow
+            key={u.id}
+            user={u}
+            onToggleRole={(role) => {
+              const roles = u.roles.includes(role)
+                ? u.roles.filter((r) => r !== role)
+                : [...u.roles, role];
+              patch.mutate({ id: u.id, body: { roles } });
+            }}
+            onToggleActive={() =>
+              patch.mutate({ id: u.id, body: { active: !u.active } })
+            }
+            onResetPassword={(password) =>
+              patch.mutate({ id: u.id, body: { password } })
+            }
+            busy={patch.isPending}
+          />
         ))}
       </ul>
     </div>
   );
 }
 
-function ErrorNote({ message }: { message: string | null }) {
-  if (!message) return null;
+function UserRow({
+  user,
+  onToggleRole,
+  onToggleActive,
+  onResetPassword,
+  busy,
+}: {
+  user: AppUser;
+  onToggleRole: (role: Role) => void;
+  onToggleActive: () => void;
+  onResetPassword: (password: string) => void;
+  busy: boolean;
+}) {
+  const [resetting, setResetting] = useState(false);
+  const [pw, setPw] = useState("");
+
   return (
-    <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
-      {message}
-    </div>
+    <li className={cn("px-4 py-4", !user.active && "opacity-60")}>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <div className="min-w-0">
+          <div className="truncate font-medium">{user.name || "(no name)"}</div>
+          <div className="truncate text-sm text-muted-foreground">{user.email}</div>
+        </div>
+        <div className="ml-auto flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onToggleActive}
+            disabled={busy}
+            className={cn(
+              "rounded-full px-2.5 py-1 text-xs font-medium",
+              user.active
+                ? "bg-success/15 text-success"
+                : "bg-muted text-muted-foreground",
+            )}
+          >
+            {user.active ? "Active" : "Inactive"}
+          </button>
+          <button
+            type="button"
+            onClick={() => setResetting((v) => !v)}
+            className="rounded-md px-2.5 py-1 text-xs font-medium text-muted-foreground hover:bg-muted"
+          >
+            Reset password
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-1.5">
+        {ROLES.map((role) => {
+          const on = user.roles.includes(role);
+          return (
+            <button
+              key={role}
+              type="button"
+              onClick={() => onToggleRole(role)}
+              disabled={busy}
+              aria-pressed={on}
+              className={cn(
+                "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                on
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border text-muted-foreground hover:bg-muted",
+              )}
+            >
+              {role}
+            </button>
+          );
+        })}
+      </div>
+
+      {resetting && (
+        <div className="mt-3 flex flex-wrap items-end gap-2">
+          <div className="space-y-1">
+            <Label htmlFor={`pw-${user.id}`} className="text-xs">
+              New password (min 8 chars)
+            </Label>
+            <Input
+              id={`pw-${user.id}`}
+              type="text"
+              value={pw}
+              onChange={(e) => setPw(e.target.value)}
+              className="h-9 w-64"
+            />
+          </div>
+          <Button
+            size="sm"
+            disabled={busy || pw.length < 8}
+            onClick={() => {
+              onResetPassword(pw);
+              setPw("");
+              setResetting(false);
+            }}
+          >
+            Save
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              setPw("");
+              setResetting(false);
+            }}
+          >
+            Cancel
+          </Button>
+        </div>
+      )}
+    </li>
   );
 }
 
-function AddUserForm({ onDone }: { onDone: () => void }) {
-  const qc = useQueryClient();
+function NewUserForm({ onDone }: { onDone: () => void }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<(typeof roles)[number]>("user");
   const [password, setPassword] = useState("");
+  const [roles, setRoles] = useState<Role[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const create = useMutation({
@@ -84,272 +218,75 @@ function AddUserForm({ onDone }: { onDone: () => void }) {
       const res = await fetch("/api/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, role, password }),
+        body: JSON.stringify({ name, email, password, roles }),
       });
       const data = (await res.json()) as { user?: AppUser; error?: string };
-      if (!res.ok || !data.user) throw new Error(data.error || "Could not create user");
+      if (!res.ok || !data.user) throw new Error(data.error || "Create failed");
       return data.user;
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["users"] });
-      onDone();
-    },
-    onError: (e) => setError(e instanceof Error ? e.message : "Could not create user"),
+    onSuccess: onDone,
+    onError: (e) => setError(e instanceof Error ? e.message : "Create failed"),
   });
 
   return (
-    <form
-      className="grid gap-4 border-b bg-muted/30 p-4"
-      onSubmit={(e) => {
-        e.preventDefault();
-        setError(null);
-        create.mutate();
-      }}
-    >
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="grid gap-1.5">
-          <Label htmlFor="new-name">Name</Label>
-          <Input
-            id="new-name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="h-11"
-            required
-          />
+    <Card className="m-4 p-4">
+      <div className="mb-3 flex items-center gap-2 text-sm font-semibold">
+        <UserPlus className="size-4" />
+        New user
+      </div>
+      <div className="grid gap-3 sm:grid-cols-3">
+        <div className="space-y-1">
+          <Label htmlFor="nu-name" className="text-xs">Name</Label>
+          <Input id="nu-name" value={name} onChange={(e) => setName(e.target.value)} className="h-9" />
         </div>
-        <div className="grid gap-1.5">
-          <Label htmlFor="new-email">Email</Label>
-          <Input
-            id="new-email"
-            type="email"
-            autoComplete="off"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="h-11"
-            required
-          />
+        <div className="space-y-1">
+          <Label htmlFor="nu-email" className="text-xs">Email</Label>
+          <Input id="nu-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="h-9" />
         </div>
-        <div className="grid gap-1.5">
-          <Label htmlFor="new-role">Role</Label>
-          <select
-            id="new-role"
-            value={role}
-            onChange={(e) => setRole(e.target.value as (typeof roles)[number])}
-            className="h-11 rounded-md border border-input bg-background px-3 text-sm"
-          >
-            {roles.map((r) => (
-              <option key={r} value={r}>
-                {r === "admin" ? "Admin — can manage users" : "User — jobs only"}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="grid gap-1.5">
-          <Label htmlFor="new-password">Temporary password</Label>
-          <Input
-            id="new-password"
-            type="text"
-            autoComplete="new-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="h-11"
-            placeholder="At least 8 characters"
-            required
-          />
+        <div className="space-y-1">
+          <Label htmlFor="nu-pw" className="text-xs">Password (min 8)</Label>
+          <Input id="nu-pw" type="text" value={password} onChange={(e) => setPassword(e.target.value)} className="h-9" />
         </div>
       </div>
-      <ErrorNote message={error} />
-      <div className="flex gap-2">
+      <div className="mt-3 flex flex-wrap gap-1.5">
+        {ROLES.map((role) => {
+          const on = roles.includes(role);
+          return (
+            <button
+              key={role}
+              type="button"
+              onClick={() =>
+                setRoles((rs) => (on ? rs.filter((r) => r !== role) : [...rs, role]))
+              }
+              aria-pressed={on}
+              className={cn(
+                "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                on
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border text-muted-foreground hover:bg-muted",
+              )}
+            >
+              {role}
+            </button>
+          );
+        })}
+      </div>
+      {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
+      <div className="mt-4 flex gap-2">
         <Button
-          type="submit"
+          size="sm"
           disabled={create.isPending || !name || !email || password.length < 8}
-          className="h-11"
+          onClick={() => {
+            setError(null);
+            create.mutate();
+          }}
         >
-          {create.isPending ? "Adding…" : "Add user"}
+          {create.isPending ? "Creating…" : "Create user"}
         </Button>
-        <Button type="button" variant="ghost" onClick={onDone} className="h-11">
+        <Button size="sm" variant="ghost" onClick={onDone}>
           Cancel
         </Button>
       </div>
-    </form>
-  );
-}
-
-function UserRow({ user, isSelf }: { user: AppUser; isSelf: boolean }) {
-  const qc = useQueryClient();
-  const [open, setOpen] = useState(false);
-  const [name, setName] = useState(user.name);
-  const [email, setEmail] = useState(user.email);
-  const [role, setRole] = useState<(typeof roles)[number]>(user.role);
-  const [active, setActive] = useState(user.active);
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-
-  const invalidate = () => {
-    qc.invalidateQueries({ queryKey: ["users"] });
-    qc.invalidateQueries({ queryKey: ["me"] });
-  };
-
-  const save = useMutation({
-    mutationFn: async () => {
-      const body: Record<string, unknown> = { name, email, role, active };
-      if (password) body.password = password;
-      const res = await fetch(`/api/users/${user.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      const data = (await res.json()) as { user?: AppUser; error?: string };
-      if (!res.ok || !data.user) throw new Error(data.error || "Could not save");
-      return data.user;
-    },
-    onSuccess: () => {
-      setPassword("");
-      invalidate();
-      setOpen(false);
-    },
-    onError: (e) => setError(e instanceof Error ? e.message : "Could not save"),
-  });
-
-  const remove = useMutation({
-    mutationFn: async () => {
-      const res = await fetch(`/api/users/${user.id}`, { method: "DELETE" });
-      if (!res.ok) {
-        const data = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(data.error || "Could not delete");
-      }
-    },
-    onSuccess: invalidate,
-    onError: (e) => setError(e instanceof Error ? e.message : "Could not delete"),
-  });
-
-  return (
-    <li>
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex min-h-14 w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/40"
-      >
-        <div className="min-w-0 flex-1">
-          <div className="truncate font-medium">
-            {user.name}
-            {isSelf && (
-              <span className="ml-2 text-xs text-muted-foreground">(you)</span>
-            )}
-          </div>
-          <div className="truncate text-sm text-muted-foreground">{user.email}</div>
-        </div>
-        <span
-          className={cn(
-            "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide",
-            user.role === "admin"
-              ? "bg-red-100 text-red-900 dark:bg-red-900/30 dark:text-red-200"
-              : "bg-muted text-muted-foreground",
-          )}
-        >
-          {user.role}
-        </span>
-        {!user.active && (
-          <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-900 dark:bg-amber-900/30 dark:text-amber-200">
-            disabled
-          </span>
-        )}
-      </button>
-
-      {open && (
-        <div className="grid gap-4 border-t bg-muted/20 p-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="grid gap-1.5">
-              <Label htmlFor={`name-${user.id}`}>Name</Label>
-              <Input
-                id={`name-${user.id}`}
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="h-11"
-              />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor={`email-${user.id}`}>Email</Label>
-              <Input
-                id={`email-${user.id}`}
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="h-11"
-              />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor={`role-${user.id}`}>Role</Label>
-              <select
-                id={`role-${user.id}`}
-                value={role}
-                onChange={(e) => setRole(e.target.value as (typeof roles)[number])}
-                className="h-11 rounded-md border border-input bg-background px-3 text-sm"
-              >
-                {roles.map((r) => (
-                  <option key={r} value={r}>
-                    {r === "admin" ? "Admin — can manage users" : "User — jobs only"}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor={`password-${user.id}`}>Reset password</Label>
-              <Input
-                id={`password-${user.id}`}
-                type="text"
-                autoComplete="new-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="h-11"
-                placeholder="Leave blank to keep current"
-              />
-            </div>
-          </div>
-
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={active}
-              onChange={(e) => setActive(e.target.checked)}
-              className="size-4"
-            />
-            Active (can sign in)
-          </label>
-
-          <ErrorNote message={error} />
-
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              disabled={save.isPending || !name || !email || (password.length > 0 && password.length < 8)}
-              onClick={() => {
-                setError(null);
-                save.mutate();
-              }}
-              className="h-11"
-            >
-              {save.isPending ? "Saving…" : "Save changes"}
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              disabled={isSelf || remove.isPending}
-              title={isSelf ? "You can't delete your own account" : undefined}
-              onClick={() => {
-                if (window.confirm(`Delete ${user.name}? This can't be undone.`)) {
-                  setError(null);
-                  remove.mutate();
-                }
-              }}
-              className="h-11"
-            >
-              <Trash2 className="size-4" />
-              Delete
-            </Button>
-          </div>
-        </div>
-      )}
-    </li>
+    </Card>
   );
 }
