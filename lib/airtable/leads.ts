@@ -1,6 +1,7 @@
 import "server-only";
 
 import { computeNextFollowUp, daysSince, isOverdue } from "@/lib/leads/cadence";
+import { ghlContactUrl } from "@/lib/ghl";
 import { airtable, type AirtableRecord } from "./client";
 import { opportunityFields, tables } from "./mapping";
 import { OpportunityContactsRepo } from "./opportunity-contacts";
@@ -52,6 +53,8 @@ function toLead(rec: AirtableRecord<OppFields>, contactName?: string): Lead {
     contactAttempts: num(r[f.contactAttempts]),
     ageDays: daysSince(createdAt),
     overdue: isOverdue(nextFollowUpDate),
+    ghlContactId: opt(r[f.ghlContactId]),
+    ghlUrl: ghlContactUrl(opt(r[f.ghlContactId])),
   };
 }
 

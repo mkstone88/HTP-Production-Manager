@@ -384,6 +384,8 @@ export const Lead = z.object({
   contactAttempts: z.number(),
   ageDays: z.number().nullable(),
   overdue: z.boolean(),                     // follow-up is due (or lead is uncontacted & aging)
+  ghlContactId: z.string().optional(),      // GHL Contact ID (correlation key)
+  ghlUrl: z.string().optional(),            // deep link to the contact in GoHighLevel
 });
 export type Lead = z.infer<typeof Lead>;
 
