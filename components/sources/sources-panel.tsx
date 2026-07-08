@@ -235,11 +235,19 @@ const pct = (num: number, den: number) => (den ? `${Math.round((num / den) * 100
 
 interface Agg { leads: number; appts: number; proposals: number; sold: number; revenue: number }
 const emptyAgg = (): Agg => ({ leads: 0, appts: 0, proposals: 0, sold: 0, revenue: 0 });
-function add(a: Agg, r: FunnelRow) {
-  a.leads++;
-  if (r.appt) a.appts++;
-  if (r.proposal) a.proposals++;
-  if (r.won) { a.sold++; a.revenue += r.revenue; }
+
+type Basis = "activity" | "cohort";
+
+/**
+ * Accumulate one funnel row into month buckets. In "activity" mode each stage
+ * lands in the month it actually happened (a proposal in the month it was SENT,
+ * a win in the month it CLOSED). In "cohort" mode every stage is credited to the
+ * lead's created month — marketing ROI for a lead vintage.
+ */
+function bump(map: Map<string, Agg>, month: string, apply: (a: Agg) => void) {
+  if (!month) return;
+  if (!map.has(month)) map.set(month, emptyAgg());
+  apply(map.get(month)!);
 }
 function monthLabel(m: string) {
   const [y, mm] = m.split("-");
@@ -254,6 +262,7 @@ function FunnelTab() {
   });
   const rows = useMemo(() => q.data?.rows ?? [], [q.data]);
   const [source, setSource] = useState("All");
+  const [basis, setBasis] = useState<Basis>("activity");
 
   const sources = useMemo(
     () => [...new Set(rows.map((r) => r.source).filter(Boolean))].sort(),
@@ -261,36 +270,67 @@ function FunnelTab() {
   );
 
   const { months, total } = useMemo(() => {
-    const scoped = rows.filter((r) => r.month && (source === "All" || r.source === source));
+    const scoped = rows.filter((r) => source === "All" || r.source === source);
     const byMonth = new Map<string, Agg>();
     const total = emptyAgg();
     for (const r of scoped) {
-      if (!byMonth.has(r.month)) byMonth.set(r.month, emptyAgg());
-      add(byMonth.get(r.month)!, r);
-      add(total, r);
+      // In cohort mode every stage is credited to the lead's created month.
+      const leadM = r.leadMonth;
+      const apptM = basis === "cohort" ? leadM : r.apptMonth;
+      const propM = basis === "cohort" ? leadM : r.proposalMonth;
+      const wonM = basis === "cohort" ? leadM : r.wonMonth;
+
+      bump(byMonth, leadM, (a) => a.leads++);
+      if (r.appt) bump(byMonth, apptM, (a) => a.appts++);
+      if (r.proposal) bump(byMonth, propM, (a) => a.proposals++);
+      if (r.won) bump(byMonth, wonM, (a) => { a.sold++; a.revenue += r.revenue; });
+
+      if (r.leadMonth) total.leads++;
+      if (r.appt) total.appts++;
+      if (r.proposal) total.proposals++;
+      if (r.won) { total.sold++; total.revenue += r.revenue; }
     }
     const months = [...byMonth.entries()]
       .sort((a, b) => b[0].localeCompare(a[0]))
       .map(([month, a]) => ({ month, ...a }));
     return { months, total };
-  }, [rows, source]);
+  }, [rows, source, basis]);
 
   if (q.isLoading) return <p className="p-4 text-sm text-muted-foreground sm:p-6">Loading funnel…</p>;
   if (q.error) return <div className="p-4 sm:p-6"><ErrorBox error={q.error} /></div>;
 
   return (
     <div className="space-y-4 p-4 sm:p-6">
-      <label className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-        <span className="font-semibold">Lead source</span>
-        <select
-          value={source}
-          onChange={(e) => setSource(e.target.value)}
-          className="rounded-md border border-input bg-background px-2 py-1.5 text-sm"
-        >
-          <option value="All">All sources</option>
-          {sources.map((s) => <option key={s} value={s}>{s}</option>)}
-        </select>
-      </label>
+      <div className="flex flex-wrap items-center gap-3">
+        <label className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+          <span className="font-semibold">Lead source</span>
+          <select
+            value={source}
+            onChange={(e) => setSource(e.target.value)}
+            className="rounded-md border border-input bg-background px-2 py-1.5 text-sm"
+          >
+            <option value="All">All sources</option>
+            {sources.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </label>
+
+        <div className="inline-flex overflow-hidden rounded-md border border-input text-xs">
+          <button
+            type="button"
+            onClick={() => setBasis("activity")}
+            className={cn("px-3 py-1.5 font-medium", basis === "activity" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground")}
+          >
+            When it happened
+          </button>
+          <button
+            type="button"
+            onClick={() => setBasis("cohort")}
+            className={cn("border-l border-input px-3 py-1.5 font-medium", basis === "cohort" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground")}
+          >
+            Lead cohort
+          </button>
+        </div>
+      </div>
 
       <Card className="overflow-x-auto">
         <table className="w-full min-w-[720px] text-sm">
@@ -308,10 +348,24 @@ function FunnelTab() {
         </table>
       </Card>
       <p className="max-w-[80ch] text-xs text-muted-foreground">
+        {basis === "activity" ? (
+          <>
+            <strong>When it happened</strong> counts each stage in its own event
+            month — a proposal in the month it was sent, a win in the month it
+            closed — so a single lead can span several rows. Best for “how much did
+            we send/close this month?”
+          </>
+        ) : (
+          <>
+            <strong>Lead cohort</strong> credits every stage back to the month the
+            lead came in, so a row is the full lifetime of that month’s leads. Best
+            for marketing ROI, but recent months look small because those leads
+            haven’t converted yet.
+          </>
+        )}{" "}
         Stages nest: a sold job counts as a proposal and an appointment, so Leads ≥
-        Appts ≥ Proposals ≥ Sold. Book % = appts ÷ leads · Close % = sold ÷ proposals.
-        Recent months are still maturing; appointment counts on older imported leads
-        undercount where booking wasn’t recorded historically.
+        Appts ≥ Proposals ≥ Sold within a cohort. Book % = appts ÷ leads · Close % =
+        sold ÷ proposals.
       </p>
     </div>
   );
