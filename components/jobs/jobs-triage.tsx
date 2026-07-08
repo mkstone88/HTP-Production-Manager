@@ -7,13 +7,16 @@ import {
   Check,
   CheckCircle2,
   ChevronDown,
+  Mail,
   Plus,
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 import { JobQuickEdit } from "@/components/jobs/job-quick-edit";
-import type { Job, Sub } from "@/lib/airtable/types";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import type { EmailTemplate, Job, Sub } from "@/lib/airtable/types";
 import { cn } from "@/lib/utils";
 
 import type { TriageJob } from "@/app/api/jobs/triage/route";
@@ -231,6 +234,9 @@ function TriageRow({
           checked={job.staging.emailSent}
           onChange={(v) => onPatch({ emailSent: v })}
         />
+        {!job.staging.emailSent && (
+          <SendEmailPill job={job} onPatch={onPatch} />
+        )}
         <CheckPill
           label="Reply"
           checked={job.staging.customerReplied}
@@ -404,6 +410,157 @@ function CrewMenu({
           </button>
         ))
       )}
+    </div>
+  );
+}
+
+/* ---- Send email (templated) ---------------------------------------------- */
+
+/**
+ * Pick the template whose name matches the job's project type. Exact match
+ * first, then suffix, then substring (longest name wins) — so "Exterior
+ * Staining" finds "Staining" and "Exterior Painting" finds "Exterior". No
+ * match → "" and the dialog forces a manual pick.
+ */
+function defaultTemplateId(templates: EmailTemplate[], projectType?: string): string {
+  if (!projectType) return "";
+  const pt = projectType.toLowerCase();
+  const byLength = (a: EmailTemplate, b: EmailTemplate) => b.name.length - a.name.length;
+  const exact = templates.find((t) => t.name.toLowerCase() === pt);
+  if (exact) return exact.id;
+  const suffix = [...templates].sort(byLength).find((t) => pt.endsWith(t.name.toLowerCase()));
+  if (suffix) return suffix.id;
+  const within = [...templates].sort(byLength).find((t) => pt.includes(t.name.toLowerCase()));
+  return within?.id ?? "";
+}
+
+function SendEmailPill({
+  job,
+  onPatch,
+}: {
+  job: TriageJob;
+  onPatch: (patch: JobPatch) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="inline-flex h-8 items-center gap-1.5 rounded-full border border-dashed border-input bg-background px-2.5 text-xs text-muted-foreground transition-colors hover:bg-muted/40"
+      >
+        <Mail className="size-3.5" />
+        <span>Send email</span>
+      </button>
+      {open && (
+        <SendEmailDialog job={job} onPatch={onPatch} onClose={() => setOpen(false)} />
+      )}
+    </>
+  );
+}
+
+function SendEmailDialog({
+  job,
+  onPatch,
+  onClose,
+}: {
+  job: TriageJob;
+  onPatch: (patch: JobPatch) => void;
+  onClose: () => void;
+}) {
+  const q = useQuery({
+    queryKey: ["templates"],
+    queryFn: async (): Promise<{ templates: EmailTemplate[] }> => {
+      const res = await fetch("/api/templates", { cache: "no-store" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Failed to load templates");
+      return data;
+    },
+  });
+  const templates = q.data?.templates ?? [];
+
+  // "" until templates load or when the project type matches nothing — the
+  // open button stays disabled until a template is actually chosen.
+  const [picked, setPicked] = useState<string | null>(null);
+  const selectedId = picked ?? defaultTemplateId(templates, job.projectType);
+  const selected = templates.find((t) => t.id === selectedId);
+  const [markSent, setMarkSent] = useState(true);
+
+  function openEmail() {
+    if (!selected) return;
+    const to = job.customerEmail ?? "";
+    const url =
+      `mailto:${encodeURIComponent(to)}` +
+      `?subject=${encodeURIComponent(selected.subject)}` +
+      `&body=${encodeURIComponent(selected.body)}`;
+    window.location.href = url;
+    if (markSent) onPatch({ emailSent: true });
+    onClose();
+  }
+
+  return (
+    <div className="fixed inset-0 z-40" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/30" />
+      <div
+        className="absolute left-1/2 top-1/2 w-[min(26rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background p-4 shadow-lg"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center gap-2 text-sm font-semibold">
+          <Mail className="size-4" /> Open email template
+        </div>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Opens your email client with the template loaded
+          {job.customerEmail ? (
+            <> — to <span className="font-medium">{job.customerEmail}</span></>
+          ) : (
+            <> — <span className="font-medium text-warning">no customer email on file</span>, you&apos;ll add the recipient yourself</>
+          )}
+          . Send it from your company address so it lands in GoHighLevel.
+        </p>
+
+        {q.isLoading && <p className="mt-3 text-sm text-muted-foreground">Loading templates…</p>}
+        {q.error && (
+          <p className="mt-3 text-sm text-destructive">
+            {q.error instanceof Error ? q.error.message : "Failed to load templates"}
+          </p>
+        )}
+
+        {q.data && (
+          <>
+            <div className="mt-3 space-y-1">
+              <Label htmlFor={`tpl-${job.id}`} className="text-xs">
+                Template{job.projectType ? ` (job type: ${job.projectType})` : ""}
+              </Label>
+              <select
+                id={`tpl-${job.id}`}
+                value={selectedId}
+                onChange={(e) => setPicked(e.target.value)}
+                className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+              >
+                <option value="">Choose a template…</option>
+                {templates.map((t) => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
+                ))}
+              </select>
+            </div>
+            <label className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={markSent}
+                onChange={(e) => setMarkSent(e.target.checked)}
+                className="size-3.5"
+              />
+              Mark &ldquo;Email&rdquo; as sent
+            </label>
+            <div className="mt-4 flex gap-2">
+              <Button size="sm" disabled={!selected} onClick={openEmail} className="gap-1.5">
+                <Mail className="size-4" /> Open email
+              </Button>
+              <Button size="sm" variant="ghost" onClick={onClose}>Cancel</Button>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }

@@ -96,6 +96,22 @@ Field names live only in `lib/airtable/mapping.ts`.
   `scheduled` (from `Job Start Date`). Add new staging steps in
   `lib/jobs/staging.ts` AND update the `StagingStep` enum in
   `lib/airtable/types.ts`.
+- **All customer communication must land in GoHighLevel. Hard rule.** The
+  app never launches `tel:` or `sms:` links and never sends messages itself —
+  it deep-links into the GHL contact (`ghlContactUrl` in `lib/ghl.ts`) and
+  the call/text happens there. Show phone numbers as plain text only.
+  **Sanctioned exception:** the triage "Send email" button opens `mailto:`
+  with a template, because Google Workspace is synced with GHL — email sent
+  from a company address is pulled into GHL automatically. (Enforced by
+  policy: employees must send from their @hometownpaintingokc.com account.)
+  Don't add other `mailto:` links without that sync in mind.
+- **Google LSA leads are half-managed in Google's dashboard.** LSA exposes
+  almost nothing through the Zapier integration — some leads arrive with
+  only a message (no name/phone/email), which can't enter the queue
+  meaningfully. Setters work those in Google's Local Services dashboard
+  (linked from the Leads page header) and add the lead here manually (or
+  book it in GHL, which Zapier pushes through) once it has real contact
+  info.
 
 ## Verify before committing
 

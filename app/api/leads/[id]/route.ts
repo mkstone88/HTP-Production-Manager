@@ -11,8 +11,15 @@ export const dynamic = "force-dynamic";
 type Ctx = { params: Promise<{ id: string }> };
 
 const ActionBody = z.discriminatedUnion("action", [
-  z.object({ action: z.literal("contacted") }),
+  z.object({ action: z.literal("contacted"), note: z.string().max(2000).optional() }),
+  z.object({
+    action: z.literal("callback"),
+    callbackAt: z.string(),
+    note: z.string().max(2000).optional(),
+  }),
+  z.object({ action: z.literal("note"), note: z.string().min(1).max(2000) }),
   z.object({ action: z.literal("book"), appointmentAt: z.string().optional() }),
+  z.object({ action: z.literal("setAppointment"), appointmentAt: z.string() }),
   z.object({ action: z.literal("disqualify"), reason: DisqualifyReason }),
   z.object({ action: z.literal("abandon") }),
   z.object({ action: z.literal("reschedule") }),
@@ -28,10 +35,19 @@ export async function PATCH(req: Request, { params }: Ctx) {
     let lead;
     switch (body.action) {
       case "contacted":
-        lead = await LeadsRepo.markContacted(id, by);
+        lead = await LeadsRepo.markContacted(id, by, body.note);
+        break;
+      case "callback":
+        lead = await LeadsRepo.scheduleCallback(id, by, body.callbackAt, body.note);
+        break;
+      case "note":
+        lead = await LeadsRepo.addNote(id, by, body.note);
         break;
       case "book":
         lead = await LeadsRepo.book(id, by, body.appointmentAt);
+        break;
+      case "setAppointment":
+        lead = await LeadsRepo.setAppointment(id, by, body.appointmentAt);
         break;
       case "disqualify":
         lead = await LeadsRepo.disqualify(id, body.reason, by);

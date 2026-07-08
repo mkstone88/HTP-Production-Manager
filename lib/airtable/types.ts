@@ -38,6 +38,7 @@ export const Job = z.object({
   customerId: z.string().optional(),        // Airtable record ID of the Contact
   customerName: z.string().optional(),      // looked up via the customer link
   address: z.string().optional(),           // looked up via the customer link
+  customerEmail: z.string().optional(),     // looked up via the customer link
   status: JobStatus.optional(),
   projectType: ProjectType.optional(),
   scheduledStart: z.string().optional(),    // YYYY-MM-DD
@@ -320,6 +321,49 @@ export const FunnelRow = z.object({
 });
 export type FunnelRow = z.infer<typeof FunnelRow>;
 
+/**
+ * A templated customer email, editable under Admin → Settings. Template types
+ * are data (one Airtable row each), so new ones can be added without code.
+ * Contract for /api/templates.
+ */
+export const EmailTemplate = z.object({
+  id: z.string(),
+  name: z.string(),                         // shown in dropdowns; matched to Project Type
+  subject: z.string(),
+  body: z.string(),
+});
+export type EmailTemplate = z.infer<typeof EmailTemplate>;
+
+export const EmailTemplateInput = z.object({
+  name: z.string().min(1).max(100),
+  subject: z.string().max(300).default(""),
+  body: z.string().max(20000).default(""),
+});
+export type EmailTemplateInput = z.infer<typeof EmailTemplateInput>;
+
+/**
+ * One open (pending) proposal on the sales Deals board. Response contract for
+ * GET /api/sales/deals. `waiting` = a future follow-up is scheduled, so the
+ * deal rests in the lower section until that time arrives.
+ */
+export const DealRow = z.object({
+  id: z.string(),
+  name: z.string(),                         // contact name (falls back to opportunity)
+  amount: z.number(),                       // proposal amount sent
+  sentDate: z.string(),                     // YYYY-MM-DD proposal sent ("" if unknown)
+  daysOut: z.number().nullable(),           // days since the proposal was sent
+  estimator: z.string(),
+  source: z.string(),
+  jobType: z.string(),
+  followUpAt: z.string().optional(),        // salesman's next check-in (ISO)
+  waiting: z.boolean(),                     // followUpAt is in the future
+  notes: z.string().optional(),
+  phone: z.string().optional(),
+  email: z.string().optional(),
+  ghlUrl: z.string().optional(),            // deep link to the contact in GoHighLevel
+});
+export type DealRow = z.infer<typeof DealRow>;
+
 /** A lead whose Source needs assigning/correcting. GET /api/sources/review + search. */
 export const SourceReviewRow = z.object({
   id: z.string(),
@@ -381,9 +425,13 @@ export const Lead = z.object({
   appointmentAt: z.string().optional(),
   bookedAt: z.string().optional(),
   nextFollowUpDate: z.string().optional(),
+  callbackAt: z.string().optional(),        // customer-requested callback; overrides cadence
   contactAttempts: z.number(),
   ageDays: z.number().nullable(),
-  overdue: z.boolean(),                     // follow-up is due (or lead is uncontacted & aging)
+  overdue: z.boolean(),                     // needs attention now (state ≠ waiting)
+  // Queue position + chip: new (never touched — call NOW) → callback (requested
+  // time has arrived) → decision (cadence exhausted) → due → waiting.
+  queueState: z.enum(["new", "callback", "decision", "due", "waiting"]),
   ghlContactId: z.string().optional(),      // GHL Contact ID (correlation key)
   ghlUrl: z.string().optional(),            // deep link to the contact in GoHighLevel
 });

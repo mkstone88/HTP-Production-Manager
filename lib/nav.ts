@@ -16,9 +16,11 @@ import {
   ClipboardList,
   DollarSign,
   GitCompare,
+  Handshake,
   HardHat,
   type LucideIcon,
   ShieldCheck,
+  SlidersHorizontal,
   UserPlus,
   Users,
   Waypoints,
@@ -63,6 +65,7 @@ export const SECTIONS: NavSection[] = [
     icon: BarChart3,
     roles: ["Sales"],
     items: [
+      { href: "/deals", label: "Deals", icon: Handshake },
       { href: "/sales", label: "KPIs", icon: BarChart3 },
       { href: "/scorecard", label: "Scorecard", icon: CalendarCheck },
       { href: "/sources", label: "Sources", icon: Waypoints },
@@ -84,7 +87,10 @@ export const SECTIONS: NavSection[] = [
     label: "Admin",
     icon: ShieldCheck,
     roles: [],
-    items: [{ href: "/users", label: "Users", icon: ShieldCheck }],
+    items: [
+      { href: "/users", label: "Users", icon: ShieldCheck },
+      { href: "/settings", label: "Settings", icon: SlidersHorizontal },
+    ],
   },
 ];
 

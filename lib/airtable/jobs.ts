@@ -34,6 +34,7 @@ function fromRecord(rec: AirtableRecord<JobAirtableFields>): Job {
     customerId: firstLinkId(f[jobFields.customer]),
     customerName: firstString(f[jobFields.customerName]),
     address: firstString(f[jobFields.address]),
+    customerEmail: firstString(f[jobFields.customerEmail]),
     status: firstString(f[jobFields.status]) as JobStatus | undefined,
     projectType: firstString(f[jobFields.projectType]) as ProjectType | undefined,
     scheduledStart: firstString(f[jobFields.scheduledStart]),

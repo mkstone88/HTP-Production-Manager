@@ -3,8 +3,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useMemo } from "react";
-import { type LucideIcon, LogOut, Settings } from "lucide-react";
+import { useMemo, useState } from "react";
+import { ChevronRight, type LucideIcon, LogOut, Settings } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { useCurrentUser } from "@/components/use-current-user";
@@ -20,6 +20,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const sections = useMemo(() => sectionsFor(roles), [roles]);
   const current = useMemo(() => activeSection(pathname, roles), [pathname, roles]);
   const subItems = current?.items ?? [];
+
+  // Desktop sidebar collapse. Default: only the section that owns the current
+  // page is open (a single-section user just sees their one section open).
+  // Manual toggles override the default until the next full page load.
+  const [collapseOverrides, setCollapseOverrides] = useState<Record<string, boolean>>({});
+  const isExpanded = (key: string) =>
+    collapseOverrides[key] ?? (current?.key === key || sections.length === 1);
+  const toggleSection = (key: string) =>
+    setCollapseOverrides((o) => ({ ...o, [key]: !isExpanded(key) }));
 
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -48,34 +57,52 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             className="h-9 w-auto"
           />
         </div>
-        <nav className="flex flex-1 flex-col gap-4 overflow-y-auto px-2 pb-3">
-          {sections.map((section) => (
-            <div key={section.key} className="flex flex-col gap-1">
-              <div className="flex items-center gap-2 px-3 pb-0.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                <section.icon className="size-3.5" />
-                {section.label}
+        <nav className="flex flex-1 flex-col gap-2 overflow-y-auto px-2 pb-3">
+          {sections.map((section) => {
+            const expanded = isExpanded(section.key);
+            const containsActive = section.items.some((i) => isActive(i.href));
+            return (
+              <div key={section.key} className="flex flex-col gap-1">
+                <button
+                  type="button"
+                  onClick={() => toggleSection(section.key)}
+                  aria-expanded={expanded}
+                  className={cn(
+                    "flex h-9 items-center gap-2 rounded-md px-3 text-[11px] font-semibold uppercase tracking-wider transition-colors",
+                    containsActive && !expanded
+                      ? "text-sidebar-foreground"
+                      : "text-muted-foreground hover:text-sidebar-foreground",
+                  )}
+                >
+                  <ChevronRight
+                    className={cn("size-3.5 transition-transform", expanded && "rotate-90")}
+                  />
+                  <section.icon className="size-3.5" />
+                  {section.label}
+                </button>
+                {expanded &&
+                  section.items.map((item) => {
+                    const active = isActive(item.href);
+                    const Icon = item.icon;
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        className={cn(
+                          "flex h-11 items-center gap-3 rounded-md px-3 text-sm font-medium transition-colors",
+                          active
+                            ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                            : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
+                        )}
+                      >
+                        <Icon className="size-4" />
+                        {item.label}
+                      </Link>
+                    );
+                  })}
               </div>
-              {section.items.map((item) => {
-                const active = isActive(item.href);
-                const Icon = item.icon;
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={cn(
-                      "flex h-11 items-center gap-3 rounded-md px-3 text-sm font-medium transition-colors",
-                      active
-                        ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                        : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
-                    )}
-                  >
-                    <Icon className="size-4" />
-                    {item.label}
-                  </Link>
-                );
-              })}
-            </div>
-          ))}
+            );
+          })}
         </nav>
         <div className="flex flex-col gap-1 border-t px-2 py-3">
           {user && (

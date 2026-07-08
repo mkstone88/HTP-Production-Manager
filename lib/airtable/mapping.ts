@@ -18,6 +18,7 @@ export const tables = {
   opportunityContacts: "NEW - Contacts",
   sourceMapping: "NEW - Source Mapping",
   weeklyGoals: "NEW - Weekly Goals",
+  emailTemplates: "Email Templates",
 } as const;
 
 /**
@@ -37,6 +38,7 @@ export const jobFields = {
   customer: "Customer",                          // linked record -> Contacts
   customerName: "Name (from Customer)",          // lookup (read-only)
   address: "Street Address  (from Customer)",    // lookup (read-only) — note: two spaces in name
+  customerEmail: "Email (from Customer)",        // lookup (read-only) — for the triage email button
   status: "Status",                              // singleSelect: Proposal Accepted | Scheduled | In Progress | Completed | On Hold
   projectType: "Project Type",                   // singleSelect
   scheduledStart: "Job Start Date",              // date (no time)
@@ -151,9 +153,12 @@ export const opportunityFields = {
   lastContactedAt: "Last Contacted At",        // dateTime
   bookedAt: "Booked At",                       // dateTime
   disqualifiedAt: "Disqualified At",           // dateTime
+  lostAt: "Lost At",                           // dateTime
   abandonedAt: "Abandoned At",                 // dateTime
   appointmentAt: "Appointment Date/Time",      // dateTime
-  nextFollowUpDate: "Next Follow-Up Date",     // dateTime — cadence
+  nextFollowUpDate: "Next Follow-Up Date",     // dateTime — setter cadence
+  callbackAt: "Callback At",                   // dateTime — customer-requested callback; overrides cadence
+  salesFollowUpAt: "Sales Follow-Up At",       // dateTime — salesman's next check-in on a pending proposal
   contactAttempts: "# Contact Attempts",       // number
   lastAction: "Last Action",                   // singleLineText (audit)
   lastActionBy: "Last Action By",              // singleLineText (audit — user email)
@@ -192,6 +197,18 @@ export const sourceMappingFields = {
   rawValue: "Raw Value",
   canonicalSource: "Canonical Source",
   notes: "Notes",
+} as const;
+
+/**
+ * Email template (= Airtable "Email Templates" record). Fully data-driven:
+ * adding a row adds a template type to the app — no code change needed. The
+ * triage "Send email" dialog matches Template Name against the job's Project
+ * Type to pre-select one.
+ */
+export const emailTemplateFields = {
+  name: "Template Name",
+  subject: "Subject",
+  body: "Body",
 } as const;
 
 export const weeklyGoalFields = {
