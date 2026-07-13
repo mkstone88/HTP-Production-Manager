@@ -1,8 +1,14 @@
 import "server-only";
 
 import { airtable, type AirtableRecord } from "./client";
-import { contactFields, tables } from "./mapping";
+import { opportunityContactFields, tables } from "./mapping";
 import type { Contact } from "./types";
+
+// The production side's "customer" is a person in the NEW - Contacts identity
+// table — the same table the setter/sales side uses (via OpportunityContactsRepo).
+// Jobs link to it through jobFields.customer ("NEW - Contact").
+const contactFields = opportunityContactFields;
+const contactsTable = tables.opportunityContacts;
 
 type ContactAirtableFields = Record<string, unknown>;
 
@@ -44,7 +50,7 @@ export const ContactsRepo = {
    * Sorted by name. Optionally filtered with a case-insensitive substring match.
    */
   async list(filter?: { search?: string; limit?: number }): Promise<Contact[]> {
-    const records = await airtable.listAll<ContactAirtableFields>(tables.contacts);
+    const records = await airtable.listAll<ContactAirtableFields>(contactsTable);
     let contacts = records.map(fromRecord);
     if (filter?.search) {
       const q = filter.search.toLowerCase();
@@ -58,12 +64,16 @@ export const ContactsRepo = {
   },
 
   async get(id: string): Promise<Contact> {
-    const rec = await airtable.get<ContactAirtableFields>(tables.contacts, id);
+    const rec = await airtable.get<ContactAirtableFields>(contactsTable, id);
     return fromRecord(rec);
   },
 
   async create(input: CreateContactInput): Promise<Contact> {
+    // NEW - Contacts' "Full Name" is a writable field, not a formula, so set it
+    // explicitly (unlike the legacy Contacts table where Name auto-computed).
+    const fullName = [input.firstName, input.lastName].filter(Boolean).join(" ").trim();
     const fields: Record<string, unknown> = {
+      [contactFields.name]: fullName,
       [contactFields.firstName]: input.firstName,
       [contactFields.lastName]: input.lastName,
     };
@@ -73,7 +83,7 @@ export const ContactsRepo = {
     if (input.city) fields[contactFields.city] = input.city;
     if (input.state) fields[contactFields.state] = input.state;
     if (input.zip) fields[contactFields.zip] = input.zip;
-    const rec = await airtable.create<ContactAirtableFields>(tables.contacts, fields);
+    const rec = await airtable.create<ContactAirtableFields>(contactsTable, fields);
     return fromRecord(rec);
   },
 };
