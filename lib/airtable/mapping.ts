@@ -35,10 +35,14 @@ export const tables = {
 export const jobFields = {
   name: "Job Name",                              // formula (read-only)
   jobNumber: "Job Number",                       // singleLineText (writable)
-  customer: "Customer",                          // linked record -> Contacts
-  customerName: "Name (from Customer)",          // lookup (read-only)
-  address: "Street Address  (from Customer)",    // lookup (read-only) — note: two spaces in name
-  customerEmail: "Email (from Customer)",        // lookup (read-only) — for the triage email button
+  // Customer identity now lives on the new-schema link (NEW - Contact). The
+  // legacy "Customer" link/lookups still exist in Airtable during the migration
+  // but the app no longer reads them. See lib/airtable/deals.ts / leads.ts for
+  // the setter/sales side of the same NEW - Contacts table.
+  customer: "NEW - Contact",                     // linked record -> NEW - Contacts
+  customerName: "Name (from NEW - Contact)",     // lookup (read-only)
+  address: "Effective Job Address",              // formula — job-site address if set on the opportunity, else the customer's street
+  customerEmail: "Email (from NEW - Contact)",   // lookup (read-only) — for the triage email button
   status: "Status",                              // singleSelect: Proposal Accepted | Scheduled | In Progress | Completed | On Hold
   projectType: "Project Type",                   // singleSelect
   scheduledStart: "Job Start Date",              // date (no time)
