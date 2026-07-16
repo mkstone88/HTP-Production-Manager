@@ -59,20 +59,24 @@ Ask: would an agent want to call this? If yes, make it an endpoint.
 
 ## Domain map
 
-| Logical | Airtable table | Repo                          |
-|---------|----------------|-------------------------------|
-| Job     | `Projects`     | `lib/airtable/jobs.ts`        |
-| Sub     | `Crews`        | `lib/airtable/subs.ts`        |
-| Contact | `Contacts`     | `lib/airtable/contacts.ts`    |
+| Logical     | Airtable table        | Repo                                    |
+|-------------|-----------------------|-----------------------------------------|
+| Job         | `Projects`            | `lib/airtable/jobs.ts`                  |
+| Sub         | `Crews`               | `lib/airtable/subs.ts`                  |
+| Contact     | `NEW - Contacts`      | `lib/airtable/contacts.ts` (+ `opportunity-contacts.ts`) |
+| Opportunity | `NEW - Opportunities` | `lib/airtable/opportunities.ts` / `leads.ts` / `deals.ts` |
 
-Field names live only in `lib/airtable/mapping.ts`.
+Field names live only in `lib/airtable/mapping.ts`. Tables and fields
+prefixed `zz LEGACY` in Airtable are decommissioned — never read from or
+write to them, and don't resurrect them in the mapping.
 
 ## Gotchas
 
 - `Job Name` is an Airtable formula. Can't write to it — set Job Number +
-  Customer + Project Type and Airtable computes it.
-- `Name (from Customer)` and `Street Address  (from Customer)` are lookups
-  on Projects. Read-only. Note the **two spaces** in the address name.
+  NEW - Contact + Project Type and Airtable computes it.
+- `Name (from NEW - Contact)` and `Effective Job Address` are computed on
+  Projects. Read-only — edit the contact, the opportunity's job-site
+  address, or the project's `Job Address Override` instead.
 - Airtable date fields are date-only (`YYYY-MM-DD`, no time).
 - FullCalendar all-day `end` is **exclusive**; Airtable's is inclusive. See
   `addDays` in `components/calendar/schedule-view.tsx`.

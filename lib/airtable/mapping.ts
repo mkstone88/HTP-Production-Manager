@@ -10,7 +10,6 @@
 export const tables = {
   jobs: "Projects",
   subs: "Crews",
-  contacts: "Contacts",
   materialsExpenses: "Materials Expenses",
   users: "App Users",
   // Sales / appointment-setting side (parallel-build "NEW - " tables).
@@ -35,10 +34,10 @@ export const tables = {
 export const jobFields = {
   name: "Job Name",                              // formula (read-only)
   jobNumber: "Job Number",                       // singleLineText (writable)
-  // Customer identity now lives on the new-schema link (NEW - Contact). The
-  // legacy "Customer" link/lookups still exist in Airtable during the migration
-  // but the app no longer reads them. See lib/airtable/deals.ts / leads.ts for
-  // the setter/sales side of the same NEW - Contacts table.
+  // Customer identity lives on the new-schema link (NEW - Contact). The old
+  // "Customer" link/lookups are decommissioned (renamed "zz LEGACY ..." in
+  // Airtable, nothing reads or writes them). See lib/airtable/deals.ts /
+  // leads.ts for the setter/sales side of the same NEW - Contacts table.
   customer: "NEW - Contact",                     // linked record -> NEW - Contacts
   customerName: "Name (from NEW - Contact)",     // lookup (read-only)
   address: "Effective Job Address",              // formula — job-site address if set on the opportunity, else the customer's street
@@ -85,21 +84,9 @@ export const subFields = {
   notes: "Notes",
 } as const;
 
-/**
- * Contact (= Airtable "Contacts" record). Read-only from the app's perspective except
- * for create — we don't edit existing contacts here.
- */
-export const contactFields = {
-  name: "Name",                  // formula: First & " " & Last (read-only)
-  firstName: "First Name",
-  lastName: "Last Name",
-  email: "Email",
-  phone: "Phone Number",
-  street: "Street Address ",     // note: trailing space
-  city: "City",
-  state: "State",
-  zip: "Zip Code",
-} as const;
+// The legacy "Contacts" table is decommissioned (renamed "zz LEGACY - Contacts"
+// in Airtable). Customers live in NEW - Contacts — see opportunityContactFields
+// below; ContactsRepo (lib/airtable/contacts.ts) reads/writes that table.
 
 /**
  * Materials Expense (= Airtable "Materials Expenses" record). One row per vendor
@@ -226,7 +213,6 @@ export const weeklyGoalFields = {
 
 export type JobFieldKey = keyof typeof jobFields;
 export type SubFieldKey = keyof typeof subFields;
-export type ContactFieldKey = keyof typeof contactFields;
 export type MaterialsExpenseFieldKey = keyof typeof materialsExpenseFields;
 export type UserFieldKey = keyof typeof userFields;
 export type OpportunityFieldKey = keyof typeof opportunityFields;
