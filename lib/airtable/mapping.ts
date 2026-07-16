@@ -16,6 +16,7 @@ export const tables = {
   opportunities: "NEW - Opportunities",
   opportunityContacts: "NEW - Contacts",
   sourceMapping: "NEW - Source Mapping",
+  marketingSpend: "NEW - Marketing Spend",
   weeklyGoals: "NEW - Weekly Goals",
   emailTemplates: "Email Templates",
 } as const;
@@ -188,6 +189,19 @@ export const sourceMappingFields = {
   rawValue: "Raw Value",
   canonicalSource: "Canonical Source",
   notes: "Notes",
+} as const;
+
+/**
+ * Marketing spend (= Airtable "NEW - Marketing Spend" record). One row per
+ * source per month — the cost side of ROI-per-source (revenue comes from
+ * opportunities). Month is a date field pinned to the 1st of the month.
+ */
+export const marketingSpendFields = {
+  name: "Name",                                // singleLineText (primary) — "<Source> — <YYYY-MM>"
+  month: "Month",                              // date (1st of month)
+  source: "Source",                            // singleSelect (same canonical choices as opportunities)
+  amount: "Amount",                            // currency
+  notes: "Notes",                              // multilineText
 } as const;
 
 /**
