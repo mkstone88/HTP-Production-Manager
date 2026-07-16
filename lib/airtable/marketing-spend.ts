@@ -2,7 +2,11 @@ import "server-only";
 
 import { airtable, type AirtableRecord } from "./client";
 import { marketingSpendFields, tables } from "./mapping";
-import type { MarketingSpendInput, MarketingSpendRow } from "./types";
+import type {
+  MarketingSpendInput,
+  MarketingSpendMonthInput,
+  MarketingSpendRow,
+} from "./types";
 
 const f = marketingSpendFields;
 type SpendFields = Record<string, unknown>;
@@ -62,5 +66,35 @@ export const MarketingSpendRepo = {
       [f.source]: input.source,
     });
     return fromRecord(rec);
+  },
+
+  /**
+   * Month-end batch: set several sources' amounts for one month in a single
+   * call. Reads the month's existing rows once, then updates or creates per
+   * source — amounts-only, so notes (e.g. from the Google Ads pull) survive
+   * corrections. Sources not in `entries` are left untouched.
+   */
+  async upsertMonth(input: MarketingSpendMonthInput): Promise<MarketingSpendRow[]> {
+    const existing = await airtable.listAll<SpendFields>(tables.marketingSpend, {
+      filterByFormula: `DATETIME_FORMAT({${f.month}}, 'YYYY-MM')='${input.month}'`,
+    });
+    const bySource = new Map(existing.map((r) => [String(r.fields[f.source] ?? ""), r]));
+
+    const out: MarketingSpendRow[] = [];
+    for (const entry of input.entries) {
+      const prior = bySource.get(entry.source);
+      const rec = prior
+        ? await airtable.update<SpendFields>(tables.marketingSpend, prior.id, {
+            [f.amount]: entry.amount,
+          })
+        : await airtable.create<SpendFields>(tables.marketingSpend, {
+            [f.name]: `${entry.source} — ${input.month}`,
+            [f.month]: `${input.month}-01`,
+            [f.source]: entry.source,
+            [f.amount]: entry.amount,
+          });
+      out.push(fromRecord(rec));
+    }
+    return out;
   },
 };

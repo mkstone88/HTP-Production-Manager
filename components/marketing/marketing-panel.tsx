@@ -198,7 +198,7 @@ export function MarketingPanel() {
 
       <SourcesTable sources={r.sources} months={r.months} />
 
-      <SpendEditor />
+      <MonthEndSpendForm />
     </div>
   );
 }
@@ -366,171 +366,187 @@ function SourceRows({
   );
 }
 
-/* ------------------------------ spend editor ------------------------------ */
+/* --------------------------- month-end spend form -------------------------- */
 
-function SpendEditor() {
+/**
+ * The month-end ritual: pick a month, see every source with what's already
+ * logged prefilled, type the numbers, save once. Reopening a month edits it.
+ */
+function MonthEndSpendForm() {
   const queryClient = useQueryClient();
   const spend = useQuery({ queryKey: ["marketing", "spend"], queryFn: fetchSpend });
 
   const [month, setMonth] = useState(() => monthStr(shiftMonth(new Date(), -1)));
-  const [source, setSource] = useState<string>("Google LSA");
-  const [amount, setAmount] = useState("");
-  const [notes, setNotes] = useState("");
+  const [draft, setDraft] = useState<Record<string, string>>({});
+  const [savedMsg, setSavedMsg] = useState("");
 
-  // Editing an already-logged cell? Prefill so saving corrects, not surprises.
-  // Derived-state-during-render (not an effect) so typing is never clobbered:
-  // the prefill applies once per (month, source) selection.
-  const existing = useMemo(
-    () => spend.data?.find((r) => r.month === month && r.source === source),
-    [spend.data, month, source],
-  );
-  const cellKey = spend.data ? `${month}|${source}` : null;
+  // What's already in Airtable for the chosen month, by source.
+  const logged = useMemo(() => {
+    const m = new Map<string, MarketingSpendRow>();
+    (spend.data ?? []).forEach((r) => {
+      if (r.month === month) m.set(r.source, r);
+    });
+    return m;
+  }, [spend.data, month]);
+
+  // Prefill the grid once per month selection (derived-state-during-render,
+  // not an effect, so typing is never clobbered by a background refetch).
+  const prefillKey = spend.data ? month : null;
   const [prefilledKey, setPrefilledKey] = useState<string | null>(null);
-  if (cellKey !== null && prefilledKey !== cellKey) {
-    setPrefilledKey(cellKey);
-    setAmount(existing ? String(existing.amount) : "");
-    setNotes(existing?.notes ?? "");
+  if (prefillKey !== null && prefilledKey !== prefillKey) {
+    setPrefilledKey(prefillKey);
+    setDraft(
+      Object.fromEntries(
+        LeadSource.options.map((s) => {
+          const row = logged.get(s);
+          return [s, row ? String(row.amount) : ""];
+        }),
+      ),
+    );
+    setSavedMsg("");
   }
+
+  // Only write sources that were filled in AND differ from what's logged —
+  // blanks are left untouched, so a partial pass never zeroes the rest.
+  const entries = useMemo(
+    () =>
+      LeadSource.options.flatMap((source) => {
+        const raw = (draft[source] ?? "").trim();
+        if (raw === "") return [];
+        const amount = Number(raw);
+        if (!Number.isFinite(amount) || amount < 0) return [];
+        if (logged.get(source)?.amount === amount) return [];
+        return [{ source, amount }];
+      }),
+    [draft, logged],
+  );
+  const invalid = LeadSource.options.some((s) => {
+    const raw = (draft[s] ?? "").trim();
+    return raw !== "" && (!Number.isFinite(Number(raw)) || Number(raw) < 0);
+  });
+  const monthTotal = LeadSource.options.reduce((sum, s) => {
+    const raw = (draft[s] ?? "").trim();
+    const n = Number(raw);
+    return raw !== "" && Number.isFinite(n) ? sum + n : sum;
+  }, 0);
 
   const save = useMutation({
     mutationFn: async () => {
-      const res = await fetch("/api/marketing/spend", {
+      const res = await fetch("/api/marketing/spend/month", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          month,
-          source,
-          amount: Number(amount),
-          ...(notes.trim() ? { notes: notes.trim() } : {}),
-        }),
+        body: JSON.stringify({ month, entries }),
       });
       const data = (await res.json()) as { error?: string };
       if (!res.ok) throw new Error(data.error || "Failed to save spend");
+      return entries.length;
     },
-    onSuccess: () => {
+    onSuccess: (count) => {
+      setSavedMsg(
+        `Saved ${count} source${count === 1 ? "" : "s"} for ${fmtMonth(month)}.`,
+      );
       queryClient.invalidateQueries({ queryKey: ["marketing"] });
     },
   });
 
-  const amountValid = amount !== "" && Number.isFinite(Number(amount)) && Number(amount) >= 0;
-  const recent = useMemo(
-    () =>
-      [...(spend.data ?? [])].sort(
-        (a, b) => b.month.localeCompare(a.month) || a.source.localeCompare(b.source),
-      ),
-    [spend.data],
-  );
-
   return (
     <Card className="p-5">
-      <h3 className="text-base font-semibold">Log ad spend</h3>
-      <p className="mt-1 text-sm text-muted-foreground">
-        One number per source per month. Logging a month that&apos;s already
-        recorded updates it.
-      </p>
-
-      <form
-        className="mt-4 flex flex-wrap items-end gap-3"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (amountValid) save.mutate();
-        }}
-      >
-        <label className="flex flex-col gap-1 text-xs font-semibold text-muted-foreground">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 className="text-base font-semibold">Month-end spend</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Enter what each source cost this month and save once. Pull the month
+            back up any time to correct it.
+          </p>
+        </div>
+        <label className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
           Month
           <input
             type="month"
             value={month}
             onChange={(e) => setMonth(e.target.value)}
-            required
             className="rounded-md border border-input bg-background px-2 py-1.5 text-sm font-normal text-foreground"
           />
         </label>
-        <label className="flex flex-col gap-1 text-xs font-semibold text-muted-foreground">
-          Source
-          <select
-            value={source}
-            onChange={(e) => setSource(e.target.value)}
-            className="rounded-md border border-input bg-background px-2 py-1.5 text-sm font-normal text-foreground"
-          >
-            {LeadSource.options.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1 text-xs font-semibold text-muted-foreground">
-          Amount ($)
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            inputMode="decimal"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            required
-            className="w-28 rounded-md border border-input bg-background px-2 py-1.5 text-sm font-normal text-foreground"
-          />
-        </label>
-        <label className="flex min-w-40 flex-1 flex-col gap-1 text-xs font-semibold text-muted-foreground">
-          Notes (optional)
-          <input
-            type="text"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            className="rounded-md border border-input bg-background px-2 py-1.5 text-sm font-normal text-foreground"
-          />
-        </label>
-        <button
-          type="submit"
-          disabled={!amountValid || save.isPending}
-          className="rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground transition-opacity disabled:opacity-50"
-        >
-          {save.isPending ? "Saving…" : existing ? "Update" : "Save"}
-        </button>
-      </form>
-      {save.error && (
-        <p className="mt-2 text-sm text-destructive">
-          {save.error instanceof Error ? save.error.message : "Failed to save spend."}
-        </p>
-      )}
+      </div>
 
-      {recent.length > 0 && (
-        <div className="mt-5 overflow-x-auto">
-          <table className="w-full min-w-[420px] text-sm">
-            <thead>
-              <tr className="border-b text-left text-xs text-muted-foreground">
-                <th className="py-1.5 pr-3 font-semibold">Month</th>
-                <th className="py-1.5 pr-3 font-semibold">Source</th>
-                <th className="py-1.5 pr-3 text-right font-semibold">Amount</th>
-                <th className="py-1.5 font-semibold">Notes</th>
-              </tr>
-            </thead>
-            <tbody>
-              {recent.map((row) => (
-                <tr
-                  key={row.id}
-                  className="cursor-pointer border-b transition-colors last:border-0 hover:bg-muted/40"
-                  onClick={() => {
-                    setMonth(row.month);
-                    setSource(row.source);
-                  }}
-                  title="Click to edit"
+      {spend.isLoading ? (
+        <p className="mt-4 text-sm text-muted-foreground">Loading logged spend…</p>
+      ) : (
+        <form
+          className="mt-4"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (entries.length > 0 && !invalid) save.mutate();
+          }}
+        >
+          <div className="grid gap-x-6 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
+            {LeadSource.options.map((source) => {
+              const row = logged.get(source);
+              return (
+                <label
+                  key={source}
+                  className="flex items-center justify-between gap-3 text-sm"
                 >
-                  <td className="py-1.5 pr-3">{fmtMonth(row.month)}</td>
-                  <td className="py-1.5 pr-3">{row.source}</td>
-                  <td className="py-1.5 pr-3 text-right font-mono">
-                    ${row.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                  </td>
-                  <td className="max-w-64 truncate py-1.5 text-xs text-muted-foreground">
-                    {row.notes ?? ""}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                  <span className="min-w-0">
+                    <span className="block truncate">{source}</span>
+                    {row?.notes && (
+                      <span
+                        className="block max-w-44 truncate text-[11px] text-muted-foreground"
+                        title={row.notes}
+                      >
+                        {row.notes}
+                      </span>
+                    )}
+                  </span>
+                  <span className="inline-flex items-center gap-1 text-muted-foreground">
+                    $
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      inputMode="decimal"
+                      placeholder="—"
+                      value={draft[source] ?? ""}
+                      onChange={(e) =>
+                        setDraft((d) => ({ ...d, [source]: e.target.value }))
+                      }
+                      className="w-28 rounded-md border border-input bg-background px-2 py-1.5 text-right text-sm text-foreground"
+                    />
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <button
+              type="submit"
+              disabled={entries.length === 0 || invalid || save.isPending}
+              className="rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground transition-opacity disabled:opacity-50"
+            >
+              {save.isPending
+                ? "Saving…"
+                : entries.length > 0
+                  ? `Save ${entries.length} source${entries.length === 1 ? "" : "s"}`
+                  : "Save"}
+            </button>
+            <span className="text-xs text-muted-foreground">
+              {fmtMonth(month)} total: {money(monthTotal)}. Blank = leave as is;
+              enter 0 for a paused source.
+            </span>
+          </div>
+          {save.error && (
+            <p className="mt-2 text-sm text-destructive">
+              {save.error instanceof Error
+                ? save.error.message
+                : "Failed to save spend."}
+            </p>
+          )}
+          {savedMsg && !save.isPending && !save.error && (
+            <p className="mt-2 text-sm text-success">{savedMsg}</p>
+          )}
+        </form>
       )}
     </Card>
   );

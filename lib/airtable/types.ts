@@ -531,6 +531,19 @@ export const MarketingSpendInput = z.object({
 export type MarketingSpendInput = z.infer<typeof MarketingSpendInput>;
 
 /**
+ * Body for POST /api/marketing/spend/month — the month-end form. One submit
+ * upserts every listed source's amount for the month; sources not listed are
+ * left untouched (so a partial correction never zeroes the rest).
+ */
+export const MarketingSpendMonthInput = z.object({
+  month: MonthString,
+  entries: z
+    .array(z.object({ source: LeadSource, amount: z.number().min(0) }))
+    .min(1),
+});
+export type MarketingSpendMonthInput = z.infer<typeof MarketingSpendMonthInput>;
+
+/**
  * Keep-spending verdict on a source over the selected range. Stable vocabulary:
  *  - no-spend      — nothing spent (organic / referral / repeat); ROI undefined.
  *  - profitable    — ROAS ≥ 5 (≈ 2× break-even at ~40% gross margin). Keep.
