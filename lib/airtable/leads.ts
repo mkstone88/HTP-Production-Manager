@@ -61,6 +61,7 @@ function toLead(rec: AirtableRecord<OppFields>, contactName?: string): Lead {
     queueState: state,
     ghlContactId: opt(r[f.ghlContactId]),
     ghlUrl: ghlContactUrl(opt(r[f.ghlContactId])),
+    lastActionAt: opt(r[f.lastActionAt]),
   };
 }
 
@@ -164,6 +165,27 @@ export const LeadsRepo = {
     };
     if (!rec.fields[f.firstContactedAt]) fields[f.firstContactedAt] = now();
     if (note?.trim()) fields[f.notes] = prependNote(rec.fields[f.notes], note);
+    const updated = await airtable.update<OppFields>(tables.opportunities, id, fields);
+    return toLead(updated);
+  },
+
+  /**
+   * Log a touch discovered by the call-sync sweep (an outbound GHL call nobody
+   * clicked "Mark contacted" for), anchored at the actual call time so the
+   * cadence schedules from when the call happened, not when the sweep ran.
+   * Same effects as markContacted, minus the note.
+   */
+  async syncCallTouch(id: string, callAtISO: string, by: string): Promise<Lead> {
+    const rec = await airtable.get<OppFields>(tables.opportunities, id);
+    const attempts = num(rec.fields[f.contactAttempts]) + 1;
+    const fields: OppFields = {
+      ...audit("call-sync", by),
+      [f.contactAttempts]: attempts,
+      [f.lastContactedAt]: callAtISO,
+      [f.nextFollowUpDate]: computeNextFollowUp(attempts, callAtISO),
+      [f.callbackAt]: null,
+    };
+    if (!rec.fields[f.firstContactedAt]) fields[f.firstContactedAt] = callAtISO;
     const updated = await airtable.update<OppFields>(tables.opportunities, id, fields);
     return toLead(updated);
   },

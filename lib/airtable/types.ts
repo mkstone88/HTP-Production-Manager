@@ -434,6 +434,7 @@ export const Lead = z.object({
   queueState: z.enum(["new", "callback", "decision", "due", "waiting"]),
   ghlContactId: z.string().optional(),      // GHL Contact ID (correlation key)
   ghlUrl: z.string().optional(),            // deep link to the contact in GoHighLevel
+  lastActionAt: z.string().optional(),      // audit: when the last setter action happened
 });
 export type Lead = z.infer<typeof Lead>;
 
@@ -462,6 +463,21 @@ export const ReconcileResult = z.object({
   gaps: z.array(ReconcileGap),
 });
 export type ReconcileResult = z.infer<typeof ReconcileResult>;
+
+/**
+ * Result of the call-sync sweep (GET /api/reconcile/calls): outbound GHL calls
+ * discovered on queue leads and logged as touches when nobody clicked
+ * "Mark contacted". The skip counters explain every lead it left alone.
+ */
+export const CallSyncResult = z.object({
+  ranAt: z.string(),
+  checked: z.number(),                      // queue leads examined
+  synced: z.number(),                       // touches logged from discovered calls
+  skippedNoGhlId: z.number(),               // lead has no GHL contact id to look up
+  skippedNoNewCall: z.number(),             // no outbound call since the last touch
+  skippedGuarded: z.number(),               // same-session call, or a human acted after it
+});
+export type CallSyncResult = z.infer<typeof CallSyncResult>;
 
 /** A PaintScout quote that's missing from Airtable or whose outcome disagrees. */
 export const ProposalIssue = z.object({
