@@ -5,6 +5,7 @@ import { errorResponse } from "@/lib/airtable/errors";
 import { JobsRepo } from "@/lib/airtable/jobs";
 import { MaterialsRepo } from "@/lib/airtable/materials";
 import { computeKpis, filterByCompletionDate } from "@/lib/costing/dashboard";
+import { requireSessionRole } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +33,7 @@ export async function GET(req: Request) {
     );
   }
   try {
+    await requireSessionRole("Production Manager");
     const { from, to } = params.data;
     const [allJobs, unassignedInvoiceCount] = await Promise.all([
       JobsRepo.list(),

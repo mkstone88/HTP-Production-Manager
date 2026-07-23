@@ -32,7 +32,9 @@ analytics) outpacing the discipline of the original core.
 
 ## 1. Security
 
-- **S1 (High): API routes don't mirror page-level role restrictions.**
+- **S1 (High) — FIXED 2026-07-23: API routes didn't mirror page-level role
+  restrictions.** Now guarded: cheap cookie-role check (`requireSessionRole`)
+  on GETs, fresh `requireRole` on mutations.
   `proxy.ts` says "Data APIs stay session-only (routes self-check)" — but
   the production-side routes never self-check. No role guard on:
   `jobs` (incl. DELETE `jobs/[id]`), `jobs/triage`, `subs`, `materials`,
@@ -40,8 +42,8 @@ analytics) outpacing the discipline of the original core.
   `scorecard`. Any authenticated session — including Subcontractor — can
   delete jobs or read financials. Fix: `requireRole(...)` matching each
   page's `ROUTE_ACCESS` rule, like `analytics/funnel` already does.
-- **S2 (Medium):** `/api/airtable/schema` dumps the entire base schema to
-  any logged-in user. Gate with `requireAdmin()`.
+- **S2 (Medium) — FIXED 2026-07-23:** `/api/airtable/schema` dumped the
+  entire base schema to any logged-in user. Now `requireAdmin()`.
 - **S3 (Medium): Deactivation doesn't lock users out for up to 30 days.**
   `sessionHasRole`-guarded routes trust cookie roles and never re-check
   Airtable. Fix: use `requireRole` (fresh read) or add token versioning.
@@ -50,8 +52,9 @@ analytics) outpacing the discipline of the original core.
   Add throttling + dummy hash verification on the not-found path.
 - **S5 (Medium):** `GET /api/reconcile/backfill` is a state-changing GET,
   CSRF-reachable under `sameSite=lax`. Make write reconcile endpoints POST.
-- **S6 (Low):** No security headers (empty `next.config.ts` — add
-  X-Frame-Options, nosniff, Referrer-Policy, CSP). PBKDF2 at 100k iterations
+- **S6 (Low):** ~~No security headers~~ (FIXED 2026-07-23 — frame-ancestors
+  CSP, X-Frame-Options, nosniff, Referrer-Policy, Permissions-Policy in
+  `next.config.ts`; full script-src CSP still open). PBKDF2 at 100k iterations
   vs OWASP 600k (self-describing format makes raising safe). PaintScout
   error path leaks a key fingerprint to clients (`lib/paintscout.ts`).
 

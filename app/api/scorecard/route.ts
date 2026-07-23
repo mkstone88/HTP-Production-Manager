@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { weeklyScorecard } from "@/lib/analytics/scorecard";
 import { errorResponse } from "@/lib/airtable/errors";
+import { requireSessionRole } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -25,6 +26,7 @@ export async function GET(req: Request) {
     );
   }
   try {
+    await requireSessionRole("Sales");
     const rows = await weeklyScorecard(params.data.weeks ?? 26);
     return NextResponse.json({ rows });
   } catch (err) {

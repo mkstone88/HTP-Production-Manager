@@ -4,6 +4,7 @@ import { z } from "zod";
 import { errorResponse } from "@/lib/airtable/errors";
 import { SubsRepo } from "@/lib/airtable/subs";
 import { HexColor, SubStatus } from "@/lib/airtable/types";
+import { requireRole, requireSessionRole } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +13,7 @@ type Ctx = { params: Promise<{ id: string }> };
 export async function GET(_req: Request, { params }: Ctx) {
   const { id } = await params;
   try {
+    await requireSessionRole("Production Manager");
     const sub = await SubsRepo.get(id);
     return NextResponse.json({ sub });
   } catch (err) {
@@ -33,6 +35,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
   const { id } = await params;
   let body: z.infer<typeof PatchBody>;
   try {
+    await requireRole("Production Manager");
     body = PatchBody.parse(await req.json());
   } catch (err) {
     return errorResponse(err);
@@ -48,6 +51,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
 export async function DELETE(_req: Request, { params }: Ctx) {
   const { id } = await params;
   try {
+    await requireRole("Production Manager");
     await SubsRepo.delete(id);
     return NextResponse.json({ ok: true });
   } catch (err) {

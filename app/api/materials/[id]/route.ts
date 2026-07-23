@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { errorResponse } from "@/lib/airtable/errors";
 import { MaterialsRepo } from "@/lib/airtable/materials";
+import { requireRole } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +31,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
   const { id } = await params;
   let body: z.infer<typeof PatchBody>;
   try {
+    await requireRole("Production Manager");
     body = PatchBody.parse(await req.json());
   } catch (err) {
     return errorResponse(err);
@@ -45,6 +47,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
 export async function DELETE(_req: Request, { params }: Ctx) {
   const { id } = await params;
   try {
+    await requireRole("Production Manager");
     await MaterialsRepo.delete(id);
     return NextResponse.json({ ok: true });
   } catch (err) {

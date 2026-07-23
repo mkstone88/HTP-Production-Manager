@@ -57,6 +57,20 @@ export function sessionHasRole(session: Session | null, ...roles: Role[]): boole
   return roles.some((r) => session.roles.includes(r));
 }
 
+/**
+ * Cheap role gate for data reads: checks the signed cookie's roles with no
+ * Airtable round-trip (Admin always passes). Use `requireRole` for mutations —
+ * it re-reads the user, so deactivation/demotion take effect immediately.
+ */
+export async function requireSessionRole(...roles: Role[]): Promise<Session> {
+  const session = await getSession();
+  if (!session) throw new AuthError("Unauthorized", 401);
+  if (!sessionHasRole(session, ...roles)) {
+    throw new AuthError("Forbidden", 403);
+  }
+  return session;
+}
+
 /** Require a signed-in user holding one of `roles` (fresh read; Admin passes). */
 export async function requireRole(...roles: Role[]): Promise<AppUser> {
   const user = await requireUser();

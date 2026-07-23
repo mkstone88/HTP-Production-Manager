@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { listSalesRows } from "@/lib/analytics/sales";
 import { errorResponse } from "@/lib/airtable/errors";
+import { requireSessionRole } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -13,6 +14,7 @@ export const maxDuration = 60;
  */
 export async function GET() {
   try {
+    await requireSessionRole("Sales");
     const rows = await listSalesRows();
     return NextResponse.json({ rows });
   } catch (err) {

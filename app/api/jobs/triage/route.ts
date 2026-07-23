@@ -4,6 +4,7 @@ import { errorResponse } from "@/lib/airtable/errors";
 import { JobsRepo } from "@/lib/airtable/jobs";
 import type { Job } from "@/lib/airtable/types";
 import { computeStaging, type StagingSummary } from "@/lib/jobs/staging";
+import { requireSessionRole } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +21,7 @@ export type TriageJob = Job & { staging: StagingSummary };
  */
 export async function GET() {
   try {
+    await requireSessionRole("Production Manager");
     const today = new Date().toISOString().slice(0, 10);
     const jobs = await JobsRepo.list();
     const triage: TriageJob[] = jobs

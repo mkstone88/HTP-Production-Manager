@@ -5,6 +5,7 @@ import { ContactsRepo } from "@/lib/airtable/contacts";
 import { errorResponse } from "@/lib/airtable/errors";
 import { JobsRepo } from "@/lib/airtable/jobs";
 import { JobStatus, ProjectType } from "@/lib/airtable/types";
+import { requireRole, requireSessionRole } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +31,7 @@ export async function GET(req: Request) {
     );
   }
   try {
+    await requireSessionRole("Production Manager");
     const jobs = await JobsRepo.list(params.data);
     return NextResponse.json({ jobs });
   } catch (err) {
@@ -72,6 +74,7 @@ const CreateBody = z
 export async function POST(req: Request) {
   let body: z.infer<typeof CreateBody>;
   try {
+    await requireRole("Production Manager");
     body = CreateBody.parse(await req.json());
   } catch (err) {
     return errorResponse(err);

@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { errorResponse } from "@/lib/airtable/errors";
 import { MaterialsRepo } from "@/lib/airtable/materials";
+import { requireRole, requireSessionRole } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +25,7 @@ export async function GET(req: Request) {
     );
   }
   try {
+    await requireSessionRole("Production Manager");
     const invoices = await MaterialsRepo.list(params.data);
     return NextResponse.json({ invoices });
   } catch (err) {
@@ -48,6 +50,7 @@ const CreateBody = z.object({
 export async function POST(req: Request) {
   let body: z.infer<typeof CreateBody>;
   try {
+    await requireRole("Production Manager");
     body = CreateBody.parse(await req.json());
   } catch (err) {
     return errorResponse(err);
