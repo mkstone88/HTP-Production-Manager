@@ -62,14 +62,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             const expanded = isExpanded(section.key);
             const containsActive = section.items.some((i) => isActive(i.href));
             return (
-              <div key={section.key} className="flex flex-col gap-1">
+              <div key={section.key} className="flex flex-col">
                 <button
                   type="button"
                   onClick={() => toggleSection(section.key)}
                   aria-expanded={expanded}
                   className={cn(
-                    "flex h-9 items-center gap-2 rounded-md px-3 text-[11px] font-semibold uppercase tracking-wider transition-colors",
-                    containsActive && !expanded
+                    "flex h-9 items-center gap-2 rounded-md px-3 text-[11px] font-bold uppercase tracking-wider transition-colors",
+                    containsActive || expanded
                       ? "text-sidebar-foreground"
                       : "text-muted-foreground hover:text-sidebar-foreground",
                   )}
@@ -80,26 +80,31 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   <section.icon className="size-3.5" />
                   {section.label}
                 </button>
-                {expanded &&
-                  section.items.map((item) => {
-                    const active = isActive(item.href);
-                    const Icon = item.icon;
-                    return (
-                      <Link
-                        key={item.href}
-                        href={item.href}
-                        className={cn(
-                          "flex h-11 items-center gap-3 rounded-md px-3 text-sm font-medium transition-colors",
-                          active
-                            ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                            : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
-                        )}
-                      >
-                        <Icon className="size-4" />
-                        {item.label}
-                      </Link>
-                    );
-                  })}
+                {/* Sub-pages: indented under a guide rail so section headers and
+                    their pages read as two distinct levels. */}
+                {expanded && (
+                  <div className="mb-1 ml-[1.15rem] flex flex-col gap-0.5 border-l border-border pl-2">
+                    {section.items.map((item) => {
+                      const active = isActive(item.href);
+                      const Icon = item.icon;
+                      return (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          className={cn(
+                            "flex h-10 items-center gap-2.5 rounded-md px-2.5 text-sm transition-colors",
+                            active
+                              ? "bg-sidebar-accent font-semibold text-sidebar-accent-foreground"
+                              : "font-medium text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
+                          )}
+                        >
+                          <Icon className="size-4" />
+                          {item.label}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             );
           })}
