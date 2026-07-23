@@ -4,7 +4,19 @@ import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin, { Draggable } from "@fullcalendar/interaction";
 import FullCalendar from "@fullcalendar/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronUp, Plus } from "lucide-react";
+import {
+  ChevronUp,
+  Cloud,
+  CloudFog,
+  CloudLightning,
+  CloudRain,
+  CloudSnow,
+  CloudSun,
+  Droplets,
+  Plus,
+  Sun,
+  Wind,
+} from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -14,6 +26,8 @@ import { Button } from "@/components/ui/button";
 import type { Job, Sub } from "@/lib/airtable/types";
 import { subColor } from "@/lib/sub-color";
 import { cn } from "@/lib/utils";
+import { datesInRange, isExteriorJob } from "@/lib/weather/risk";
+import type { DailyForecast, WeatherForecast } from "@/lib/weather/types";
 
 type JobsResponse = { jobs: Job[]; error?: string };
 type SubsResponse = { subs: Sub[]; error?: string };
@@ -30,6 +44,13 @@ async function fetchSubs(): Promise<Sub[]> {
   const data = (await res.json()) as SubsResponse;
   if (!res.ok) throw new Error(data.error || "Failed to load subcontractors");
   return data.subs;
+}
+
+async function fetchWeather(): Promise<WeatherForecast> {
+  const res = await fetch("/api/weather", { cache: "no-store" });
+  const data = (await res.json()) as WeatherForecast & { error?: string };
+  if (!res.ok) throw new Error(data.error || "Failed to load weather");
+  return data;
 }
 
 async function patchJob(id: string, patch: Partial<Job>): Promise<Job> {
@@ -84,14 +105,41 @@ export function ScheduleView() {
   const [editingJobId, setEditingJobId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Weather overlay. Sticky per device (localStorage), fetched lazily the
+  // first time it's turned on.
+  const [weatherOn, setWeatherOn] = useState<boolean>(
+    () => typeof window !== "undefined" && localStorage.getItem("htp-weather") === "1",
+  );
+  const toggleWeather = (on: boolean) => {
+    setWeatherOn(on);
+    try {
+      localStorage.setItem("htp-weather", on ? "1" : "0");
+    } catch {
+      // Private-mode storage failures just lose stickiness, not the toggle.
+    }
+  };
+
   const jobsQuery = useQuery({ queryKey: ["jobs"], queryFn: fetchJobs });
   const subsQuery = useQuery({ queryKey: ["subs", "active"], queryFn: fetchSubs });
+  const weatherQuery = useQuery({
+    queryKey: ["weather"],
+    queryFn: fetchWeather,
+    enabled: weatherOn,
+    staleTime: 30 * 60 * 1000, // forecast is hourly-fresh at most
+  });
 
   const subsById = useMemo(() => {
     const m = new Map<string, Sub>();
     for (const s of subsQuery.data ?? []) m.set(s.id, s);
     return m;
   }, [subsQuery.data]);
+
+  // Forecast keyed by date, only populated while the overlay is on.
+  const weatherByDate = useMemo(() => {
+    const m = new Map<string, DailyForecast>();
+    if (weatherOn) for (const d of weatherQuery.data?.days ?? []) m.set(d.date, d);
+    return m;
+  }, [weatherOn, weatherQuery.data]);
 
   const allJobs = jobsQuery.data ?? [];
   // Jobs awaiting a date, split into the active queue and an On Hold parking lot.
@@ -166,6 +214,16 @@ export function ScheduleView() {
       visibleScheduled.map((j) => {
         const isCompleted = j.status === "Completed";
         const isOnHold = j.status === "On Hold";
+        // Exterior job landing on a rough-weather day (only while the overlay
+        // is on, and never for finished work). Flags for review, not cancellation.
+        const weatherRisk =
+          weatherOn &&
+          !isCompleted &&
+          isExteriorJob(j.projectType) &&
+          Boolean(j.scheduledStart) &&
+          datesInRange(j.scheduledStart!, j.scheduledEnd).some(
+            (d) => weatherByDate.get(d)?.hasConcern,
+          );
         const color = subColor({
           subId: j.assignedSubId,
           override: j.assignedSubId
@@ -179,11 +237,11 @@ export function ScheduleView() {
           : isOnHold
             ? "#475569"
             : "#ffffff";
-        const classNames = isCompleted
-          ? ["job-event-completed"]
+        const baseClass = isCompleted
+          ? "job-event-completed"
           : isOnHold
-            ? ["job-event-onhold"]
-            : ["job-event"];
+            ? "job-event-onhold"
+            : "job-event";
         return {
           id: j.id,
           title: j.name || j.customerName || "Job",
@@ -195,16 +253,17 @@ export function ScheduleView() {
             subId: j.assignedSubId,
             completed: isCompleted,
             onHold: isOnHold,
+            weatherRisk,
             customerName: j.customerName,
             status: j.status,
           },
-          backgroundColor: color,
-          borderColor: isOnHold ? "#94a3b8" : color,
-          textColor,
-          classNames,
+          backgroundColor: weatherRisk ? "#dc2626" : color,
+          borderColor: weatherRisk ? "#b91c1c" : isOnHold ? "#94a3b8" : color,
+          textColor: weatherRisk ? "#ffffff" : textColor,
+          classNames: weatherRisk ? [baseClass, "job-event-weather-risk"] : [baseClass],
         };
       }),
-    [visibleScheduled, subsById],
+    [visibleScheduled, subsById, weatherOn, weatherByDate],
   );
 
   const loading = jobsQuery.isLoading || subsQuery.isLoading;
@@ -246,8 +305,44 @@ export function ScheduleView() {
             />
             <span className="select-none">Show completed</span>
           </label>
+          <label
+            className={cn(
+              "flex h-10 cursor-pointer items-center gap-2 rounded-lg border px-3 text-sm sm:h-9",
+              weatherOn
+                ? "border-primary/40 bg-accent text-accent-foreground"
+                : "border-input bg-card",
+            )}
+          >
+            <input
+              type="checkbox"
+              checked={weatherOn}
+              onChange={(e) => toggleWeather(e.target.checked)}
+              className="size-4"
+            />
+            <CloudSun className="size-4" />
+            <span className="select-none">Weather</span>
+          </label>
         </div>
       </div>
+
+      {weatherOn && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b bg-muted/40 px-4 py-1.5 text-[11px] text-muted-foreground">
+          <span>
+            Forecast:{" "}
+            <span className="font-medium">
+              {weatherQuery.data?.location.name ?? "…"}
+            </span>{" "}
+            — high/low · rain % · wind mph
+          </span>
+          {weatherQuery.isFetching && <span>Updating…</span>}
+          {weatherQuery.isError && (
+            <span className="font-medium text-warning">Weather unavailable</span>
+          )}
+          <span className="ml-auto">
+            Red cards = exterior jobs on rough-weather days
+          </span>
+        </div>
+      )}
 
       {loadError && (
         <div className="border-b bg-destructive/10 px-4 py-2 text-sm text-destructive">
@@ -391,10 +486,21 @@ export function ScheduleView() {
         </aside>
 
         {/* Calendar */}
-        <div className="flex-1 p-2 pb-16 sm:p-4 lg:pb-4">
+        <div className={cn("flex-1 p-2 pb-16 sm:p-4 lg:pb-4", weatherOn && "htp-weather-on")}>
           <FullCalendar
             plugins={[dayGridPlugin, interactionPlugin]}
             initialView="dayGridMonth"
+            dayCellContent={(arg) => {
+              const day = weatherOn
+                ? weatherByDate.get(toDateOnly(arg.date) ?? "")
+                : undefined;
+              return (
+                <>
+                  {arg.dayNumberText}
+                  {day && <WeatherDayChip day={day} />}
+                </>
+              );
+            }}
             headerToolbar={{
               left: "prev,next today",
               center: "title",
@@ -520,5 +626,73 @@ export function ScheduleView() {
         onClose={() => setEditingJobId(null)}
       />
     </div>
+  );
+}
+
+/** Render a WMO weather code as a condition icon. https://open-meteo.com/en/docs */
+function conditionIcon(code: number | undefined) {
+  const cls = "htp-wx-cond";
+  if (code === 0) return <Sun className={cls} aria-hidden />;
+  if (code != null && code <= 2) return <CloudSun className={cls} aria-hidden />; // clear / partly cloudy
+  if (code === 45 || code === 48) return <CloudFog className={cls} aria-hidden />;
+  if (code != null && code >= 95)
+    return <CloudLightning className={cls} aria-hidden />; // thunderstorm
+  if (code != null && code >= 71 && code <= 86)
+    return <CloudSnow className={cls} aria-hidden />; // snow
+  if (code != null && ((code >= 51 && code <= 67) || (code >= 80 && code <= 82)))
+    return <CloudRain className={cls} aria-hidden />;
+  return <Cloud className={cls} aria-hidden />; // overcast / unknown
+}
+
+/**
+ * Compact per-day weather line dropped into each calendar cell while the
+ * overlay is on. High/low, rain chance, and wind are always shown (the numbers
+ * the PM plans by); a value turns red once it crosses an exterior-work
+ * threshold from `lib/weather/risk`.
+ */
+function WeatherDayChip({ day }: { day: DailyForecast }) {
+  const hi = day.tempMaxF != null ? Math.round(day.tempMaxF) : undefined;
+  const lo = day.tempMinF != null ? Math.round(day.tempMinF) : undefined;
+  const precip = day.precipProbabilityPct != null ? Math.round(day.precipProbabilityPct) : undefined;
+  const wind = day.windSpeedMaxMph != null ? Math.round(day.windSpeedMaxMph) : undefined;
+  const gust = day.windGustMaxMph != null ? Math.round(day.windGustMaxMph) : undefined;
+  const tip = [
+    hi != null && lo != null ? `High ${hi}° / Low ${lo}°` : null,
+    precip != null ? `Rain ${precip}%` : null,
+    wind != null ? `Wind ${wind} mph${gust != null ? ` (gusts ${gust})` : ""}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  return (
+    <span className="htp-wx" title={tip || undefined}>
+      {conditionIcon(day.weatherCode)}
+      {hi != null && lo != null && (
+        <span
+          className={cn(
+            "htp-wx-item",
+            (day.concerns.includes("heat") || day.concerns.includes("cold")) &&
+              "htp-wx-bad",
+          )}
+        >
+          {hi}°/{lo}°
+        </span>
+      )}
+      {precip != null && (
+        <span
+          className={cn("htp-wx-item", day.concerns.includes("rain") && "htp-wx-bad")}
+        >
+          <Droplets aria-hidden />
+          {precip}%
+        </span>
+      )}
+      {wind != null && (
+        <span
+          className={cn("htp-wx-item", day.concerns.includes("wind") && "htp-wx-bad")}
+        >
+          <Wind aria-hidden />
+          {wind}
+        </span>
+      )}
+    </span>
   );
 }
