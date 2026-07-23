@@ -57,6 +57,7 @@ async function patchJob(id: string, patch: JobPatch): Promise<Job> {
 export function JobsTriage() {
   const qc = useQueryClient();
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const triage = useQuery({ queryKey: ["jobs", "triage"], queryFn: fetchTriage });
   const subs = useQuery({ queryKey: ["subs", "active"], queryFn: fetchSubs });
@@ -66,6 +67,7 @@ export function JobsTriage() {
       patchJob(id, patch),
     onMutate: async ({ id, patch }) => {
       await qc.cancelQueries({ queryKey: ["jobs", "triage"] });
+      setSaveError(null);
       const prev = qc.getQueryData<TriageJob[]>(["jobs", "triage"]);
       qc.setQueryData<TriageJob[]>(["jobs", "triage"], (old) =>
         (old ?? []).map((j) => {
@@ -105,8 +107,14 @@ export function JobsTriage() {
       );
       return { prev };
     },
-    onError: (_err, _vars, ctx) => {
+    onError: (err, vars, ctx) => {
       if (ctx?.prev) qc.setQueryData(["jobs", "triage"], ctx.prev);
+      const name =
+        ctx?.prev?.find((j) => j.id === vars.id)?.name || "this job";
+      const detail = err instanceof Error ? err.message : "Update failed";
+      setSaveError(
+        `Change to "${name}" didn't save (${detail}). It's been rolled back — try again.`,
+      );
     },
     onSettled: () => {
       qc.invalidateQueries({ queryKey: ["jobs", "triage"] });
@@ -152,6 +160,15 @@ export function JobsTriage() {
 
   return (
     <>
+      {saveError && (
+        <div
+          role="alert"
+          className="m-4 mb-0 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive"
+        >
+          {saveError}
+        </div>
+      )}
+
       {working.length > 0 ? (
         <ul className="divide-y">{working.map((j) => renderRow(j))}</ul>
       ) : (

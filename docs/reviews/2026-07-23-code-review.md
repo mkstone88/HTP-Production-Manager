@@ -60,18 +60,18 @@ analytics) outpacing the discipline of the original core.
 
 ## 2. Data-loss bugs
 
-- **B1 (High):** `job-detail.tsx` PATCHes every field, not just changed
-  ones. Editing notes with a stale page overwrites a concurrent reschedule.
-  Diff against fetched job; send only dirty keys (API already supports it).
-- **B2 (High):** The `set-state-in-effect` lint errors are a real
-  typing-loss bug: quick-edit's debounced save → invalidate → refetch
-  re-seeds local state, discarding characters typed during the round-trip.
-  Fix with B1: seed once per job id, don't reset dirty fields.
-- **B3 (High UX): Silent rollbacks.** `jobs-list.tsx` (crew assign) and
-  `jobs-triage.tsx` (staging checkboxes) restore cache on error with no
-  message; `schedule-view.tsx` does it right. Add a shared toast. Related:
-  login form has no catch on network failure; survey autosave badge claims
-  "retrying" but never retries.
+- **B1 (High) — FIXED 2026-07-23:** `job-detail.tsx` PATCHed every field.
+  Now uses a draft overlay (only touched fields held locally) and sends
+  only fields that differ from the server; Save disabled when clean.
+- **B2 (High) — FIXED 2026-07-23:** The `set-state-in-effect` refetch race
+  in job-detail and quick-edit. Both now use the draft-overlay pattern (no
+  seeding effect); quick-edit's form is keyed per job. The two lint errors
+  CLAUDE.md carved out are gone — lint is fully clean now.
+- **B3 (High UX) — MOSTLY FIXED 2026-07-23: Silent rollbacks.** jobs-list
+  crew assign and triage checkboxes now show a rollback error banner
+  (role="alert", names the job); login form catches network failures.
+  Still open: survey autosave badge claims "retrying" but never retries;
+  a shared toast primitive is still worth extracting eventually.
 - **B4 (Medium): Formula escaping wrong in five places** (`leads.ts`,
   `sources.ts`, `opportunity-contacts.ts`, `source-mapping.ts`,
   `marketing-spend.ts`): only `'` escaped, not `\`. Trailing `\` → 422;

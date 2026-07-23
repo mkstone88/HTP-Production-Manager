@@ -41,6 +41,7 @@ export function JobsList() {
   const qc = useQueryClient();
   const [tab, setTab] = useState<Tab>("triage");
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [reassignError, setReassignError] = useState<string | null>(null);
 
   const jobs = useQuery({ queryKey: ["jobs"], queryFn: fetchJobs });
   const subs = useQuery({ queryKey: ["subs"], queryFn: fetchSubs });
@@ -95,6 +96,7 @@ export function JobsList() {
       }),
     onMutate: async ({ id, subId }) => {
       await qc.cancelQueries({ queryKey: ["jobs"] });
+      setReassignError(null);
       const prev = qc.getQueryData<Job[]>(["jobs"]);
       qc.setQueryData<Job[]>(["jobs"], (old) =>
         (old ?? []).map((j) =>
@@ -103,8 +105,14 @@ export function JobsList() {
       );
       return { prev };
     },
-    onError: (_err, _vars, ctx) => {
+    onError: (err, vars, ctx) => {
       if (ctx?.prev) qc.setQueryData(["jobs"], ctx.prev);
+      const name =
+        ctx?.prev?.find((j) => j.id === vars.id)?.name || "this job";
+      const detail = err instanceof Error ? err.message : "Update failed";
+      setReassignError(
+        `Crew change for "${name}" didn't save (${detail}). It's been rolled back — try again.`,
+      );
     },
     onSettled: () => qc.invalidateQueries({ queryKey: ["jobs"] }),
   });
@@ -177,6 +185,15 @@ export function JobsList() {
           All <Count n={counts.all} />
         </TabButton>
       </div>
+
+      {reassignError && (
+        <div
+          role="alert"
+          className="m-4 mb-0 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive"
+        >
+          {reassignError}
+        </div>
+      )}
 
       {tab === "triage" && <JobsTriage />}
 

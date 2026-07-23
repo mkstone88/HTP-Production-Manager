@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,53 +32,55 @@ async function fetchSubs(): Promise<Sub[]> {
   return data.subs;
 }
 
+/**
+ * Local edits live in a draft that holds ONLY the fields the user has touched;
+ * everything else renders the live server value. Two bugs this avoids:
+ *  - a background refetch can never clobber in-progress edits (the old
+ *    seed-state-in-effect reset every field whenever job.data changed), and
+ *  - saving sends only the fields that actually differ from the server, so a
+ *    stale open tab can't overwrite a concurrent edit (e.g. a reschedule made
+ *    on the Schedule view) with old values.
+ */
+const DRAFT_KEYS = [
+  "status",
+  "projectType",
+  "scheduledStart",
+  "scheduledEnd",
+  "assignedSubId",
+  "notes",
+] as const;
+type DraftKey = (typeof DRAFT_KEYS)[number];
+type Draft = Partial<Record<DraftKey, string>>;
+
 export function JobDetail({ id }: { id: string }) {
   const router = useRouter();
   const qc = useQueryClient();
   const job = useQuery({ queryKey: ["job", id], queryFn: () => fetchJob(id) });
   const subs = useQuery({ queryKey: ["subs"], queryFn: fetchSubs });
 
-  const [status, setStatus] = useState<typeof statuses[number] | "">("");
-  const [projectType, setProjectType] = useState<typeof projectTypes[number] | "">("");
-  const [scheduledStart, setScheduledStart] = useState("");
-  const [scheduledEnd, setScheduledEnd] = useState("");
-  const [assignedSubId, setAssignedSubId] = useState("");
-  const [notes, setNotes] = useState("");
+  const [draft, setDraft] = useState<Draft>({});
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const j = job.data;
-    if (!j) return;
-    setStatus(j.status ?? "");
-    setProjectType(j.projectType ?? "");
-    setScheduledStart(j.scheduledStart ?? "");
-    setScheduledEnd(j.scheduledEnd ?? "");
-    setAssignedSubId(j.assignedSubId ?? "");
-    setNotes(j.notes ?? "");
-  }, [job.data]);
+  const setField = (key: DraftKey, value: string) =>
+    setDraft((d) => ({ ...d, [key]: value }));
 
   const save = useMutation({
-    mutationFn: async (): Promise<Job> => {
-      const body: Record<string, unknown> = {
-        status: status || null,
-        projectType: projectType || null,
-        scheduledStart: scheduledStart || null,
-        scheduledEnd: scheduledEnd || null,
-        assignedSubId: assignedSubId || null,
-        notes: notes,
-      };
+    mutationFn: async (changes: Partial<Record<DraftKey, string | null>>): Promise<Job> => {
       const res = await fetch(`/api/jobs/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify(changes),
       });
       const data = (await res.json()) as { job?: Job; error?: string };
       if (!res.ok || !data.job) throw new Error(data.error || "Save failed");
       return data.job;
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["job", id] });
+    onSuccess: (saved) => {
+      // Seed the cache with the response before clearing the draft so the
+      // form never flashes back to pre-save values.
+      qc.setQueryData(["job", id], saved);
       qc.invalidateQueries({ queryKey: ["jobs"] });
+      setDraft({});
       setError(null);
     },
     onError: (e) => setError(e instanceof Error ? e.message : "Save failed"),
@@ -113,6 +115,29 @@ export function JobDetail({ id }: { id: string }) {
 
   const j = job.data;
 
+  // Touched fields show the draft; untouched fields track the server.
+  const view: Record<DraftKey, string> = {
+    status: draft.status ?? j.status ?? "",
+    projectType: draft.projectType ?? j.projectType ?? "",
+    scheduledStart: draft.scheduledStart ?? j.scheduledStart ?? "",
+    scheduledEnd: draft.scheduledEnd ?? j.scheduledEnd ?? "",
+    assignedSubId: draft.assignedSubId ?? j.assignedSubId ?? "",
+    notes: draft.notes ?? j.notes ?? "",
+  };
+
+  // Only fields that actually differ from the server go in the PATCH
+  // (empty string means "clear" → null; the API leaves omitted keys untouched).
+  const changes: Partial<Record<DraftKey, string | null>> = {};
+  for (const key of DRAFT_KEYS) {
+    const touched = draft[key];
+    if (touched === undefined) continue;
+    const normalized = touched || null;
+    if (normalized !== ((j[key] as string | undefined) ?? null)) {
+      changes[key] = normalized;
+    }
+  }
+  const isDirty = Object.keys(changes).length > 0;
+
   return (
     <div className="flex flex-1 flex-col bg-card">
       <div className="border-b px-4 py-3">
@@ -133,7 +158,7 @@ export function JobDetail({ id }: { id: string }) {
         className="grid max-w-xl gap-5 p-4 sm:p-6"
         onSubmit={(e) => {
           e.preventDefault();
-          save.mutate();
+          if (isDirty) save.mutate(changes);
         }}
       >
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -141,8 +166,8 @@ export function JobDetail({ id }: { id: string }) {
             <Label htmlFor="status">Status</Label>
             <select
               id="status"
-              value={status}
-              onChange={(e) => setStatus(e.target.value as typeof statuses[number])}
+              value={view.status}
+              onChange={(e) => setField("status", e.target.value)}
               className="h-11 rounded-md border border-input bg-card px-3 text-sm"
             >
               <option value="">—</option>
@@ -157,10 +182,8 @@ export function JobDetail({ id }: { id: string }) {
             <Label htmlFor="projectType">Project type</Label>
             <select
               id="projectType"
-              value={projectType}
-              onChange={(e) =>
-                setProjectType(e.target.value as typeof projectTypes[number])
-              }
+              value={view.projectType}
+              onChange={(e) => setField("projectType", e.target.value)}
               className="h-11 rounded-md border border-input bg-card px-3 text-sm"
             >
               <option value="">—</option>
@@ -179,8 +202,8 @@ export function JobDetail({ id }: { id: string }) {
             <Input
               id="scheduledStart"
               type="date"
-              value={scheduledStart}
-              onChange={(e) => setScheduledStart(e.target.value)}
+              value={view.scheduledStart}
+              onChange={(e) => setField("scheduledStart", e.target.value)}
               className="h-11"
             />
           </div>
@@ -189,10 +212,10 @@ export function JobDetail({ id }: { id: string }) {
             <Input
               id="scheduledEnd"
               type="date"
-              value={scheduledEnd}
-              onChange={(e) => setScheduledEnd(e.target.value)}
+              value={view.scheduledEnd}
+              onChange={(e) => setField("scheduledEnd", e.target.value)}
               className="h-11"
-              min={scheduledStart || undefined}
+              min={view.scheduledStart || undefined}
             />
           </div>
         </div>
@@ -201,8 +224,8 @@ export function JobDetail({ id }: { id: string }) {
           <Label htmlFor="crew">Crew leader</Label>
           <select
             id="crew"
-            value={assignedSubId}
-            onChange={(e) => setAssignedSubId(e.target.value)}
+            value={view.assignedSubId}
+            onChange={(e) => setField("assignedSubId", e.target.value)}
             className="h-11 rounded-md border border-input bg-card px-3 text-sm"
           >
             <option value="">Unassigned</option>
@@ -218,15 +241,18 @@ export function JobDetail({ id }: { id: string }) {
           <Label htmlFor="notes">Notes</Label>
           <textarea
             id="notes"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
+            value={view.notes}
+            onChange={(e) => setField("notes", e.target.value)}
             rows={4}
             className="rounded-md border border-input bg-card px-3 py-2 text-sm"
           />
         </div>
 
         {error && (
-          <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+          <div
+            role="alert"
+            className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive"
+          >
             {error}
           </div>
         )}
@@ -234,7 +260,7 @@ export function JobDetail({ id }: { id: string }) {
         <div className="sticky bottom-0 -mx-4 flex gap-2 border-t bg-card/95 p-4 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0">
           <Button
             type="submit"
-            disabled={save.isPending}
+            disabled={save.isPending || !isDirty}
             className="h-12 flex-1 sm:h-11 sm:flex-none"
           >
             {save.isPending ? "Saving…" : "Save changes"}

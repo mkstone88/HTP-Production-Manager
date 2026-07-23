@@ -45,6 +45,9 @@ export function LoginForm() {
       const target = from && canAccess(roles, from) ? from : defaultLanding(roles);
       router.replace(target);
       router.refresh();
+    } catch {
+      // fetch itself failed — offline, dead spot, or the server unreachable.
+      setError("Couldn't reach the server. Check your connection and try again.");
     } finally {
       setSubmitting(false);
     }
