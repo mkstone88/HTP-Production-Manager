@@ -17,6 +17,7 @@ export const tables = {
   opportunityContacts: "NEW - Contacts",
   sourceMapping: "NEW - Source Mapping",
   marketingSpend: "NEW - Marketing Spend",
+  salesSurveys: "NEW - Sales Surveys",
   weeklyGoals: "NEW - Weekly Goals",
   emailTemplates: "Email Templates",
 } as const;
@@ -168,6 +169,7 @@ export const opportunityFields = {
   ghlOpportunityId: "GHL Opportunity ID",      // singleLineText (correlation key)
   paintScoutQuoteId: "Paint Scout Quote ID",   // singleLineText (correlation key)
   notes: "Notes",                              // multilineText
+  surveys: "NEW - Sales Surveys",              // reverse link -> the appointment's sales survey(s)
 } as const;
 
 export const opportunityContactFields = {
@@ -189,6 +191,49 @@ export const sourceMappingFields = {
   rawValue: "Raw Value",
   canonicalSource: "Canonical Source",
   notes: "Notes",
+} as const;
+
+/**
+ * Sales survey (= Airtable "NEW - Sales Surveys" record). Digital version of
+ * the paper Residential Project Survey, taken during the sales appointment.
+ * One row per survey, linked to the opportunity; every answer is optional and
+ * autosaved field-by-field by the app. Choice lists mirror
+ * lib/surveys/questions.ts — change both together.
+ */
+export const salesSurveyFields = {
+  name: "Survey",                              // singleLineText (primary) — "<Contact> — <date>"
+  opportunity: "Opportunity",                  // linked record -> NEW - Opportunities
+  projectType: "Project Type",                 // singleSelect: Interior | Exterior | Both — drives branching
+  surveyedBy: "Surveyed By",                   // singleLineText (user email)
+  surveyedAt: "Surveyed At",                   // dateTime
+  discRead: "DISC Read",                       // singleSelect: D | I | S | C
+  projectDescription: "Project Description",   // multilineText (Q1)
+  surfaces: "Surfaces",                        // multipleSelects (Q2)
+  surfacesOther: "Surfaces Other",             // singleLineText
+  damageIssues: "Damage Issues",               // multipleSelects (Q3)
+  damageNotes: "Damage Notes",                 // singleLineText
+  colorsDecided: "Colors Decided",             // singleSelect (Q4)
+  colorConsultation: "Color Consultation",     // singleSelect (Q4a)
+  timeline: "Timeline",                        // singleSelect (Q5)
+  urgencyDrivers: "Urgency Drivers",           // multipleSelects (Q5a)
+  urgencyNotes: "Urgency Notes",               // singleLineText
+  mainGoals: "Main Goals",                     // multipleSelects (Q6)
+  stakesIfNotDone: "Stakes If Not Done",       // multilineText (Q6a)
+  otherBids: "Other Bids",                     // singleSelect (Q7)
+  whyNotOthers: "Why Not Others",              // multilineText (Q7a)
+  hiredBefore: "Hired Painters Before",        // singleSelect (Q8)
+  pastExperienceNotes: "Past Experience Notes",// multilineText (Q8a/b)
+  concerns: "Concerns",                        // multipleSelects (Q9)
+  whatMatters: "What Matters",                 // multipleSelects (Q10)
+  wantsToLearn: "Wants To Learn",              // multilineText (Q11)
+  interiorSensitivities: "Interior Sensitivities", // multipleSelects (interior only)
+  pets: "Pets",                                // multipleSelects (Q12)
+  petNotes: "Pet Notes",                       // singleLineText
+  carefulItems: "Careful Items",               // multipleSelects (Q13)
+  carefulItemsNotes: "Careful Items Notes",    // singleLineText
+  walkthroughNotes: "Walkthrough Notes",       // multilineText
+  outcome: "Outcome",                          // singleSelect
+  nextFollowUpAt: "Next Follow-Up",            // dateTime — mirrored to the opp's Sales Follow-Up At
 } as const;
 
 /**

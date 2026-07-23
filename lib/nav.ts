@@ -20,6 +20,7 @@ import {
   HardHat,
   type LucideIcon,
   Megaphone,
+  NotebookPen,
   ShieldCheck,
   SlidersHorizontal,
   UserPlus,
@@ -67,6 +68,7 @@ export const SECTIONS: NavSection[] = [
     roles: ["Sales"],
     items: [
       { href: "/deals", label: "Deals", icon: Handshake },
+      { href: "/surveys", label: "Surveys", icon: NotebookPen },
       { href: "/sales", label: "KPIs", icon: BarChart3 },
       { href: "/scorecard", label: "Scorecard", icon: CalendarCheck },
       { href: "/marketing", label: "Marketing", icon: Megaphone },

@@ -1,6 +1,25 @@
 import { z } from "zod";
 
 import { ROLES } from "@/lib/roles";
+import {
+  CAREFUL_ITEMS,
+  COLOR_CONSULTATION,
+  COLORS_DECIDED,
+  CONCERNS,
+  DAMAGE_ISSUES,
+  DISC_READS,
+  HIRED_BEFORE,
+  INTERIOR_SENSITIVITIES,
+  MAIN_GOALS,
+  OTHER_BIDS,
+  OUTCOMES,
+  PETS,
+  PROJECT_TYPES,
+  SURFACES,
+  TIMELINES,
+  URGENCY_DRIVERS,
+  WHAT_MATTERS,
+} from "@/lib/surveys/questions";
 
 /**
  * Airtable Status singleSelect on Projects.
@@ -610,6 +629,117 @@ export const MarketingSourceTotal = z.object({
   signal: SourceSignal,
 });
 export type MarketingSourceTotal = z.infer<typeof MarketingSourceTotal>;
+
+/* -------------------------------------------------------------------------- */
+/* Sales surveys (in-appointment intake)                                       */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * A sales survey record, flattened for the app. Every answer is optional —
+ * in-person interviews are fluid and questions get skipped. Choice values are
+ * plain strings here; the PATCH input (SurveyPatch below) is what enforces the
+ * canonical vocabularies from lib/surveys/questions.ts.
+ */
+export const SalesSurvey = z.object({
+  id: z.string(),
+  name: z.string(),
+  opportunityId: z.string().optional(),
+  projectType: z.string().optional(),
+  surveyedBy: z.string().optional(),
+  surveyedAt: z.string().optional(),
+  discRead: z.string().optional(),
+  projectDescription: z.string().optional(),
+  surfaces: z.array(z.string()).optional(),
+  surfacesOther: z.string().optional(),
+  damageIssues: z.array(z.string()).optional(),
+  damageNotes: z.string().optional(),
+  colorsDecided: z.string().optional(),
+  colorConsultation: z.string().optional(),
+  timeline: z.string().optional(),
+  urgencyDrivers: z.array(z.string()).optional(),
+  urgencyNotes: z.string().optional(),
+  mainGoals: z.array(z.string()).optional(),
+  stakesIfNotDone: z.string().optional(),
+  otherBids: z.string().optional(),
+  whyNotOthers: z.string().optional(),
+  hiredBefore: z.string().optional(),
+  pastExperienceNotes: z.string().optional(),
+  concerns: z.array(z.string()).optional(),
+  whatMatters: z.array(z.string()).optional(),
+  wantsToLearn: z.string().optional(),
+  interiorSensitivities: z.array(z.string()).optional(),
+  pets: z.array(z.string()).optional(),
+  petNotes: z.string().optional(),
+  carefulItems: z.array(z.string()).optional(),
+  carefulItemsNotes: z.string().optional(),
+  walkthroughNotes: z.string().optional(),
+  outcome: z.string().optional(),
+  nextFollowUpAt: z.string().optional(),
+});
+export type SalesSurvey = z.infer<typeof SalesSurvey>;
+
+/** Body for POST /api/surveys — start (or resume) the survey for an appointment. */
+export const CreateSurveyInput = z.object({
+  opportunityId: z.string().min(1),
+});
+export type CreateSurveyInput = z.infer<typeof CreateSurveyInput>;
+
+/**
+ * An appointment the estimator might survey next: used by both the "up next"
+ * list (sorted by how close the appointment is to now) and the search results.
+ */
+export const SurveyCandidate = z.object({
+  opportunityId: z.string(),
+  name: z.string(),
+  jobType: z.string().optional(),
+  appointmentAt: z.string().optional(),
+  surveyId: z.string().optional(),           // set when a survey already exists
+});
+export type SurveyCandidate = z.infer<typeof SurveyCandidate>;
+
+const clearable = <T extends z.ZodTypeAny>(schema: T) => schema.nullable().optional();
+const text = (max: number) => clearable(z.string().max(max));
+
+/**
+ * Body for PATCH /api/surveys/[id] — the autosave payload. Send only the
+ * fields that changed; null clears a value. Choice fields validate against
+ * the canonical vocabularies in lib/surveys/questions.ts, so the app and any
+ * future agent write the same stable answer set.
+ */
+export const SurveyPatch = z
+  .object({
+    projectType: clearable(z.enum(PROJECT_TYPES)),
+    discRead: clearable(z.enum(DISC_READS)),
+    projectDescription: text(5000),
+    surfaces: z.array(z.enum(SURFACES)).optional(),
+    surfacesOther: text(500),
+    damageIssues: z.array(z.enum(DAMAGE_ISSUES)).optional(),
+    damageNotes: text(500),
+    colorsDecided: clearable(z.enum(COLORS_DECIDED)),
+    colorConsultation: clearable(z.enum(COLOR_CONSULTATION)),
+    timeline: clearable(z.enum(TIMELINES)),
+    urgencyDrivers: z.array(z.enum(URGENCY_DRIVERS)).optional(),
+    urgencyNotes: text(500),
+    mainGoals: z.array(z.enum(MAIN_GOALS)).optional(),
+    stakesIfNotDone: text(5000),
+    otherBids: clearable(z.enum(OTHER_BIDS)),
+    whyNotOthers: text(5000),
+    hiredBefore: clearable(z.enum(HIRED_BEFORE)),
+    pastExperienceNotes: text(5000),
+    concerns: z.array(z.enum(CONCERNS)).optional(),
+    whatMatters: z.array(z.enum(WHAT_MATTERS)).optional(),
+    wantsToLearn: text(5000),
+    interiorSensitivities: z.array(z.enum(INTERIOR_SENSITIVITIES)).optional(),
+    pets: z.array(z.enum(PETS)).optional(),
+    petNotes: text(500),
+    carefulItems: z.array(z.enum(CAREFUL_ITEMS)).optional(),
+    carefulItemsNotes: text(500),
+    walkthroughNotes: text(10000),
+    outcome: clearable(z.enum(OUTCOMES)),
+    nextFollowUpAt: clearable(z.string()),
+  })
+  .strict();
+export type SurveyPatch = z.infer<typeof SurveyPatch>;
 
 /** Response contract for GET /api/marketing/roi. */
 export const MarketingReport = z.object({
