@@ -124,3 +124,56 @@ export async function opportunitiesSince(
     return !Number.isNaN(ms) && ms >= sinceMs;
   });
 }
+
+/**
+ * The most recent OUTBOUND call logged on a contact at/after `sinceMs`, as an
+ * ISO timestamp — or null when there is none. Calls placed through the GHL
+ * dialer land in the contact's conversations as TYPE_CALL messages; that's the
+ * signal the call-sync sweep uses to log touches nobody clicked for.
+ *
+ * Cost: one conversation search + one messages fetch per conversation that has
+ * activity in the window (almost always 0 or 1 for a lead being worked).
+ */
+export async function latestOutboundCallAt(
+  contactId: string,
+  sinceMs: number,
+): Promise<string | null> {
+  assertConfig();
+  const data = await ghlGet(
+    `${BASE}/conversations/search` +
+      `?locationId=${encodeURIComponent(LOCATION)}&contactId=${encodeURIComponent(contactId)}`,
+  );
+  const convos = (data.conversations as Record<string, unknown>[]) || [];
+
+  let latestMs = 0;
+  for (const convo of convos) {
+    const id = str(convo.id);
+    if (!id) continue;
+    // Skip conversations with no activity in the window at all.
+    const lastMsgMs = Date.parse(
+      str(convo.lastMessageDate) || str(convo.dateUpdated),
+    );
+    if (!Number.isNaN(lastMsgMs) && lastMsgMs && lastMsgMs < sinceMs) continue;
+
+    const payload = await ghlGet(
+      `${BASE}/conversations/${encodeURIComponent(id)}/messages?limit=100`,
+    );
+    // The API nests the list: { messages: { messages: [...] } } — but be
+    // defensive about a flat array too.
+    const wrap = payload.messages as
+      | Record<string, unknown>[]
+      | { messages?: Record<string, unknown>[] }
+      | undefined;
+    const list = Array.isArray(wrap) ? wrap : (wrap?.messages ?? []);
+
+    for (const m of list) {
+      if (!/CALL/i.test(str(m.messageType))) continue;
+      if (str(m.direction).toLowerCase() !== "outbound") continue;
+      const at = Date.parse(str(m.dateAdded));
+      if (Number.isNaN(at) || at < sinceMs) continue;
+      if (at > latestMs) latestMs = at;
+    }
+  }
+
+  return latestMs ? new Date(latestMs).toISOString() : null;
+}

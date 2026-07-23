@@ -33,7 +33,7 @@ export function CostingJobs() {
   const unassigned = q.data?.unassignedInvoiceCount ?? 0;
 
   return (
-    <div className="flex flex-1 flex-col">
+    <div className="flex flex-1 flex-col bg-card">
       <div className="flex items-center gap-2 border-b px-4 py-3">
         <Link
           href="/costing"
@@ -42,7 +42,7 @@ export function CostingJobs() {
         >
           <ArrowLeft className="size-4" />
         </Link>
-        <h1 className="text-lg font-semibold">Finalize job costing</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Finalize job costing</h1>
       </div>
 
       {unassigned > 0 && (

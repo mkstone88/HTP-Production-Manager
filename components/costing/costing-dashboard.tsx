@@ -106,9 +106,9 @@ export function CostingDashboard() {
   }, [data?.costed, search]);
 
   return (
-    <div className="flex flex-1 flex-col">
+    <div className="flex flex-1 flex-col bg-card">
       <div className="flex items-center gap-2 border-b px-4 py-3">
-        <h1 className="text-lg font-semibold">Job costing</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Job costing</h1>
         <Link href="/costing/invoices" className="ml-auto">
           <Button size="sm" variant="outline" className="h-10 px-3 sm:h-9">
             Invoices
@@ -139,7 +139,7 @@ export function CostingDashboard() {
                     className={cn(
                       "h-8 rounded-md px-3 text-sm font-medium transition-colors",
                       periodKey === p.key
-                        ? "bg-foreground text-background"
+                        ? "bg-primary text-primary-foreground shadow-sm"
                         : "text-muted-foreground hover:bg-muted/60",
                     )}
                   >

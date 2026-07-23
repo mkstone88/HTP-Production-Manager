@@ -95,9 +95,9 @@ export function LeadsSuite() {
   const needsAttention = (queue.data?.leads ?? []).filter((l) => l.overdue).length;
 
   return (
-    <div className="flex flex-1 flex-col">
+    <div className="flex flex-1 flex-col bg-card">
       <div className="flex items-center gap-2 border-b px-4 py-3">
-        <h1 className="text-lg font-semibold">Leads</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Leads</h1>
         <div className="ml-auto flex items-center gap-2">
           {/* Google LSA leads expose almost nothing through Zapier (often just a
               message), so they're worked in Google's own dashboard until they
@@ -171,7 +171,7 @@ function TabButton({
       onClick={onClick}
       className={cn(
         "flex h-10 shrink-0 items-center rounded-md px-3 text-sm font-medium transition-colors",
-        active ? "bg-foreground text-background" : "text-muted-foreground hover:bg-muted/60",
+        active ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted/60",
       )}
     >
       {children}
@@ -446,7 +446,7 @@ function LeadCard({ lead }: { lead: Lead }) {
               id={`dq-${lead.id}`}
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+              className="h-9 rounded-md border border-input bg-card px-2 text-sm"
             >
               {DisqualifyReason.options.map((r) => (
                 <option key={r} value={r}>{r}</option>
@@ -480,7 +480,7 @@ function LeadCard({ lead }: { lead: Lead }) {
               <Ellipsis className="size-4" />
             </Button>
             {showMore && (
-              <div className="absolute right-0 z-10 mt-1 w-48 rounded-md border bg-background p-1 shadow-lg" onMouseLeave={() => setShowMore(false)}>
+              <div className="absolute right-0 z-10 mt-1 w-48 rounded-md border bg-card p-1 shadow-lg" onMouseLeave={() => setShowMore(false)}>
                 <MenuItem
                   onClick={() => {
                     setShowMore(false);
@@ -914,13 +914,13 @@ function NewLeadForm({ onClose }: { onClose: () => void }) {
         <Field label="Phone" value={phone} onChange={setPhone} />
         <div className="space-y-1">
           <Label className="text-xs">Source</Label>
-          <select value={source} onChange={(e) => setSource(e.target.value)} className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm">
+          <select value={source} onChange={(e) => setSource(e.target.value)} className="h-9 w-full rounded-md border border-input bg-card px-2 text-sm">
             {LeadSource.options.map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
         </div>
         <div className="space-y-1">
           <Label className="text-xs">Job type</Label>
-          <select value={jobType} onChange={(e) => setJobType(e.target.value)} className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm">
+          <select value={jobType} onChange={(e) => setJobType(e.target.value)} className="h-9 w-full rounded-md border border-input bg-card px-2 text-sm">
             <option value="">—</option>
             {OppJobType.options.map((t) => <option key={t} value={t}>{t}</option>)}
           </select>
@@ -928,7 +928,7 @@ function NewLeadForm({ onClose }: { onClose: () => void }) {
       </div>
       <div className="mt-3 space-y-1">
         <Label className="text-xs">Notes</Label>
-        <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
+        <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className="w-full rounded-md border border-input bg-card px-3 py-2 text-sm" />
       </div>
       {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
       <div className="mt-4 flex gap-2">

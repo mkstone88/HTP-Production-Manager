@@ -85,9 +85,9 @@ export function DealsBoard() {
 
   return (
     <div className="flex flex-1 flex-col">
-      <div className="flex flex-wrap items-center gap-2 border-b px-4 py-3">
-        <h1 className="flex items-center gap-2 text-lg font-semibold">
-          <Handshake className="size-5" /> Open deals
+      <div className="flex flex-wrap items-center gap-2 border-b bg-card px-4 py-3">
+        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          <Handshake className="size-6 text-primary" /> Open deals
         </h1>
         {scoped.length > 0 && (
           <span className="text-sm text-muted-foreground">
@@ -100,7 +100,7 @@ export function DealsBoard() {
             <select
               value={estimator}
               onChange={(e) => setEstimator(e.target.value)}
-              className="rounded-md border border-input bg-background px-2 py-1.5 text-sm"
+              className="rounded-md border border-input bg-card px-2 py-1.5 text-sm"
             >
               <option value="All">All</option>
               {estimators.map((e) => <option key={e} value={e}>{e}</option>)}

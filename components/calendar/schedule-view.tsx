@@ -213,10 +213,10 @@ export function ScheduleView() {
     (subsQuery.error instanceof Error && subsQuery.error.message);
 
   return (
-    <div className="flex flex-1 flex-col">
+    <div className="flex flex-1 flex-col bg-card">
       {/* Top toolbar */}
       <div className="flex flex-wrap items-center gap-2 border-b px-3 py-2 sm:gap-3 sm:px-4 sm:py-3">
-        <h1 className="text-lg font-semibold">Schedule</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Schedule</h1>
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <Link href="/jobs/new" prefetch>
             <Button size="sm" className="h-10 px-3 sm:h-9">
@@ -227,7 +227,7 @@ export function ScheduleView() {
           <select
             value={subFilter}
             onChange={(e) => setSubFilter(e.target.value)}
-            className="h-10 rounded-md border border-input bg-background px-2 text-sm sm:h-9"
+            className="h-10 rounded-md border border-input bg-card px-2 text-sm sm:h-9"
             aria-label="Filter by sub"
           >
             <option value="">All subs</option>
@@ -237,7 +237,7 @@ export function ScheduleView() {
               </option>
             ))}
           </select>
-          <label className="flex h-10 cursor-pointer items-center gap-2 rounded-md border border-input bg-background px-3 text-sm sm:h-9">
+          <label className="flex h-10 cursor-pointer items-center gap-2 rounded-md border border-input bg-card px-3 text-sm sm:h-9">
             <input
               type="checkbox"
               checked={showCompleted}
@@ -269,7 +269,7 @@ export function ScheduleView() {
         <aside
           ref={draggableContainer}
           className={cn(
-            "z-20 border-t bg-background transition-transform duration-300 ease-out",
+            "z-20 border-t bg-card transition-transform duration-300 ease-out",
             "lg:relative lg:order-first lg:w-72 lg:shrink-0 lg:translate-y-0 lg:border-r lg:border-t-0",
             // Mobile: fixed bottom drawer; transform between collapsed and expanded
             "fixed inset-x-0 bottom-0 max-h-[70dvh] rounded-t-xl shadow-[0_-8px_24px_rgba(0,0,0,0.08)] lg:max-h-none lg:rounded-none lg:shadow-none",

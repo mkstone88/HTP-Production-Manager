@@ -1,6 +1,7 @@
 {
   "crons": [
-    { "path": "/api/reconcile/backfill?days=7", "schedule": "0 7 * * *" },
+    { "path": "/api/reconcile/backfill?days=7", "schedule": "0 * * * *" },
+    { "path": "/api/reconcile/calls", "schedule": "30 * * * *" },
     { "path": "/api/reconcile/proposals", "schedule": "15 7 * * *" }
   ]
 }

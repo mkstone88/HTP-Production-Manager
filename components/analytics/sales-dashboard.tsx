@@ -190,7 +190,7 @@ export function SalesDashboard() {
   return (
     <div className="space-y-6 p-4 sm:p-6">
       <div>
-        <h1 className="text-xl font-semibold tracking-tight">Sales performance</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Sales performance</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           {rows.length.toLocaleString()} proposals sent · live from Airtable · filter
           to slice by type, source, city, and year.
@@ -211,7 +211,7 @@ export function SalesDashboard() {
                   "px-2.5 py-1 text-xs font-medium transition-colors",
                   basis === val
                     ? "bg-primary text-primary-foreground"
-                    : "bg-background text-muted-foreground hover:bg-muted",
+                    : "bg-card text-muted-foreground hover:bg-muted",
                 )}
               >
                 {val === "sent" ? "Proposal sent" : val === "accepted" ? "Proposal accepted" : "Lead created"}
@@ -389,7 +389,7 @@ function Select({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="rounded-md border border-input bg-background px-2 py-1.5 text-sm text-foreground"
+        className="rounded-md border border-input bg-card px-2 py-1.5 text-sm text-foreground"
       >
         <option value="All">All</option>
         {options.map((o) => (
@@ -418,7 +418,7 @@ function DateFilter({
         type="date"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="rounded-md border border-input bg-background px-2 py-1 text-sm text-foreground"
+        className="rounded-md border border-input bg-card px-2 py-1 text-sm text-foreground"
       />
     </label>
   );

@@ -98,7 +98,7 @@ export function SubForm(props: Props) {
             id="status"
             value={status}
             onChange={(e) => setStatus(e.target.value as typeof statuses[number])}
-            className="h-11 rounded-md border border-input bg-background px-3 text-sm"
+            className="h-11 rounded-md border border-input bg-card px-3 text-sm"
           >
             {statuses.map((s) => (
               <option key={s} value={s}>
@@ -176,7 +176,7 @@ export function SubForm(props: Props) {
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           rows={3}
-          className="rounded-md border border-input bg-background px-3 py-2 text-sm"
+          className="rounded-md border border-input bg-card px-3 py-2 text-sm"
         />
       </div>
 
@@ -186,7 +186,7 @@ export function SubForm(props: Props) {
         </div>
       )}
 
-      <div className="sticky bottom-0 -mx-4 flex gap-2 border-t bg-background/95 p-4 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0">
+      <div className="sticky bottom-0 -mx-4 flex gap-2 border-t bg-card/95 p-4 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0">
         <Button
           type="submit"
           disabled={save.isPending || !name}

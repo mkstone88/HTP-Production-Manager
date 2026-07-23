@@ -45,6 +45,8 @@ export const ROUTE_ACCESS: AccessRule[] = [
   { prefix: "/sales", roles: ["Sales"] },
   { prefix: "/deals", roles: ["Sales"] },
   { prefix: "/scorecard", roles: ["Sales"] },
+  { prefix: "/marketing", roles: ["Sales"] },
+  { prefix: "/surveys", roles: ["Sales"] },
   { prefix: "/leads", roles: ["Office Admin"] },
   { prefix: "/reconcile", roles: ["Office Admin"] },
   { prefix: "/sources", roles: ["Office Admin", "Sales"] },

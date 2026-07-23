@@ -102,7 +102,7 @@ export function InvoiceForm({
             id="inv-vendor"
             value={vendor}
             onChange={(e) => setVendor(e.target.value)}
-            className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+            className="h-10 rounded-md border border-input bg-card px-3 text-sm"
           >
             <option value="">—</option>
             {vendors.map((v) => (

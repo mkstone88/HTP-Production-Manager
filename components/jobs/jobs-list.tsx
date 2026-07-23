@@ -8,6 +8,7 @@ import { useMemo, useState } from "react";
 import { JobQuickEdit } from "@/components/jobs/job-quick-edit";
 import { JobsTriage } from "@/components/jobs/jobs-triage";
 import { Button } from "@/components/ui/button";
+import { StatusDot, type StatusTone } from "@/components/ui/status-dot";
 import type { Job, Sub } from "@/lib/airtable/types";
 import { cn } from "@/lib/utils";
 
@@ -143,9 +144,9 @@ export function JobsList() {
   );
 
   return (
-    <div className="flex flex-1 flex-col">
+    <div className="flex flex-1 flex-col bg-card">
       <div className="flex items-center gap-2 border-b px-4 py-3">
-        <h1 className="text-lg font-semibold">Jobs</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Jobs</h1>
         <Link href="/jobs/new" className="ml-auto" prefetch>
           <Button size="sm" className="h-10 px-3 sm:h-9">
             <Plus className="size-4" />
@@ -259,14 +260,7 @@ function JobRow({
                   : "Unscheduled"}
               </span>
               {j.status && (
-                <span
-                  className={cn(
-                    "rounded-full px-2 py-0.5",
-                    statusColor(j.status),
-                  )}
-                >
-                  {j.status}
-                </span>
+                <StatusDot tone={statusTone(j.status)} label={j.status} />
               )}
             </div>
           </div>
@@ -280,7 +274,7 @@ function JobRow({
             onClick={(e) => e.stopPropagation()}
             aria-label="Crew leader"
             className={cn(
-              "h-10 w-full max-w-[14rem] rounded-md border border-input bg-background px-2 text-sm",
+              "h-10 w-full max-w-[14rem] rounded-md border border-input bg-card px-2 text-sm",
               "transition-colors",
               !j.assignedSubId && "text-muted-foreground",
             )}
@@ -323,7 +317,7 @@ function TabButton({
       className={cn(
         "h-10 rounded-md px-3 text-sm font-medium transition-colors",
         active
-          ? "bg-foreground text-background"
+          ? "bg-primary text-primary-foreground shadow-sm"
           : "text-muted-foreground hover:bg-muted/60",
       )}
     >
@@ -338,17 +332,17 @@ function Count({ n }: { n: number }) {
   );
 }
 
-function statusColor(s: string): string {
+function statusTone(s: string): StatusTone {
   switch (s) {
     case "Completed":
-      return "bg-muted text-muted-foreground";
+      return "muted";
     case "In Progress":
-      return "bg-emerald-100 text-emerald-900 dark:bg-emerald-900/30 dark:text-emerald-200";
+      return "success";
     case "Scheduled":
-      return "bg-amber-100 text-amber-900 dark:bg-amber-900/30 dark:text-amber-200";
+      return "warning";
     case "On Hold":
-      return "bg-slate-200 text-slate-700 dark:bg-slate-700/40 dark:text-slate-200";
+      return "muted";
     default:
-      return "bg-blue-100 text-blue-900 dark:bg-blue-900/30 dark:text-blue-200";
+      return "info";
   }
 }

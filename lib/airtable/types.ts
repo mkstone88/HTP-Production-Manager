@@ -1,6 +1,25 @@
 import { z } from "zod";
 
 import { ROLES } from "@/lib/roles";
+import {
+  CAREFUL_ITEMS,
+  COLOR_CONSULTATION,
+  COLORS_DECIDED,
+  CONCERNS,
+  DAMAGE_ISSUES,
+  DISC_READS,
+  HIRED_BEFORE,
+  INTERIOR_SENSITIVITIES,
+  MAIN_GOALS,
+  OTHER_BIDS,
+  OUTCOMES,
+  PETS,
+  PROJECT_TYPES,
+  SURFACES,
+  TIMELINES,
+  URGENCY_DRIVERS,
+  WHAT_MATTERS,
+} from "@/lib/surveys/questions";
 
 /**
  * Airtable Status singleSelect on Projects.
@@ -434,6 +453,7 @@ export const Lead = z.object({
   queueState: z.enum(["new", "callback", "decision", "due", "waiting"]),
   ghlContactId: z.string().optional(),      // GHL Contact ID (correlation key)
   ghlUrl: z.string().optional(),            // deep link to the contact in GoHighLevel
+  lastActionAt: z.string().optional(),      // audit: when the last setter action happened
 });
 export type Lead = z.infer<typeof Lead>;
 
@@ -462,6 +482,21 @@ export const ReconcileResult = z.object({
   gaps: z.array(ReconcileGap),
 });
 export type ReconcileResult = z.infer<typeof ReconcileResult>;
+
+/**
+ * Result of the call-sync sweep (GET /api/reconcile/calls): outbound GHL calls
+ * discovered on queue leads and logged as touches when nobody clicked
+ * "Mark contacted". The skip counters explain every lead it left alone.
+ */
+export const CallSyncResult = z.object({
+  ranAt: z.string(),
+  checked: z.number(),                      // queue leads examined
+  synced: z.number(),                       // touches logged from discovered calls
+  skippedNoGhlId: z.number(),               // lead has no GHL contact id to look up
+  skippedNoNewCall: z.number(),             // no outbound call since the last touch
+  skippedGuarded: z.number(),               // same-session call, or a human acted after it
+});
+export type CallSyncResult = z.infer<typeof CallSyncResult>;
 
 /** A PaintScout quote that's missing from Airtable or whose outcome disagrees. */
 export const ProposalIssue = z.object({
@@ -507,3 +542,216 @@ export const DuplicateReport = z.object({
 export type DuplicateReport = z.infer<typeof DuplicateReport>;
 
 /* -------------------------------------------------------------------------- */
+
+/** A month (YYYY-MM) — the grain marketing spend and cohorts are tracked at. */
+export const MonthString = z.string().regex(/^\d{4}-\d{2}$/, "Expected YYYY-MM");
+
+/** One source's ad spend for one month (= NEW - Marketing Spend row). */
+export const MarketingSpendRow = z.object({
+  id: z.string(),
+  month: z.string(),                           // YYYY-MM
+  source: z.string(),
+  amount: z.number(),
+  notes: z.string().optional(),
+});
+export type MarketingSpendRow = z.infer<typeof MarketingSpendRow>;
+
+/** Body for POST /api/marketing/spend — upserts by (source, month). */
+export const MarketingSpendInput = z.object({
+  month: MonthString,
+  source: LeadSource,
+  amount: z.number().min(0),
+  notes: z.string().max(1000).optional(),
+});
+export type MarketingSpendInput = z.infer<typeof MarketingSpendInput>;
+
+/**
+ * Body for POST /api/marketing/spend/month — the month-end form. One submit
+ * upserts every listed source's amount for the month; sources not listed are
+ * left untouched (so a partial correction never zeroes the rest).
+ */
+export const MarketingSpendMonthInput = z.object({
+  month: MonthString,
+  entries: z
+    .array(z.object({ source: LeadSource, amount: z.number().min(0) }))
+    .min(1),
+});
+export type MarketingSpendMonthInput = z.infer<typeof MarketingSpendMonthInput>;
+
+/**
+ * Keep-spending verdict on a source over the selected range. Stable vocabulary:
+ *  - no-spend      — nothing spent (organic / referral / repeat); ROI undefined.
+ *  - profitable    — ROAS ≥ 5 (≈ 2× break-even at ~40% gross margin). Keep.
+ *  - marginal      — ROAS 2.5–5 (above break-even, thin). Watch.
+ *  - unprofitable  — ROAS < 2.5 (below break-even, incl. zero revenue). Review.
+ */
+export const SourceSignal = z.enum([
+  "no-spend",
+  "profitable",
+  "marginal",
+  "unprofitable",
+]);
+export type SourceSignal = z.infer<typeof SourceSignal>;
+
+/**
+ * One source × lead-cohort-month cell of the marketing grid. Cohort attribution:
+ * every stage (and revenue) is credited to the month the LEAD was created, so
+ * "April spend" lines up against everything April's leads eventually produced —
+ * even if the job closed in June.
+ */
+export const MarketingMonthRow = z.object({
+  source: z.string(),
+  month: z.string(),                           // lead cohort month (YYYY-MM)
+  spend: z.number(),
+  leads: z.number(),
+  appts: z.number(),
+  proposals: z.number(),
+  wins: z.number(),
+  pending: z.number(),                         // proposals still undecided — recent cohorts look worse than they'll end up
+  revenue: z.number(),                         // won revenue attributed to this cohort
+});
+export type MarketingMonthRow = z.infer<typeof MarketingMonthRow>;
+
+/** A source rolled up over the whole selected range, with the derived economics. */
+export const MarketingSourceTotal = z.object({
+  source: z.string(),
+  spend: z.number(),
+  leads: z.number(),
+  appts: z.number(),
+  proposals: z.number(),
+  wins: z.number(),
+  pending: z.number(),
+  revenue: z.number(),
+  costPerLead: z.number().nullable(),          // null when no spend
+  costPerWin: z.number().nullable(),           // null when no spend or no wins
+  roas: z.number().nullable(),                 // revenue ÷ spend; null when no spend
+  closeRate: z.number(),                       // wins ÷ leads, 0–100
+  signal: SourceSignal,
+});
+export type MarketingSourceTotal = z.infer<typeof MarketingSourceTotal>;
+
+/* -------------------------------------------------------------------------- */
+/* Sales surveys (in-appointment intake)                                       */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * A sales survey record, flattened for the app. Every answer is optional —
+ * in-person interviews are fluid and questions get skipped. Choice values are
+ * plain strings here; the PATCH input (SurveyPatch below) is what enforces the
+ * canonical vocabularies from lib/surveys/questions.ts.
+ */
+export const SalesSurvey = z.object({
+  id: z.string(),
+  name: z.string(),
+  opportunityId: z.string().optional(),
+  projectType: z.string().optional(),
+  surveyedBy: z.string().optional(),
+  surveyedAt: z.string().optional(),
+  discRead: z.string().optional(),
+  projectDescription: z.string().optional(),
+  surfaces: z.array(z.string()).optional(),
+  surfacesOther: z.string().optional(),
+  damageIssues: z.array(z.string()).optional(),
+  damageNotes: z.string().optional(),
+  colorsDecided: z.string().optional(),
+  colorConsultation: z.string().optional(),
+  timeline: z.string().optional(),
+  urgencyDrivers: z.array(z.string()).optional(),
+  urgencyNotes: z.string().optional(),
+  mainGoals: z.array(z.string()).optional(),
+  stakesIfNotDone: z.string().optional(),
+  otherBids: z.string().optional(),
+  whyNotOthers: z.string().optional(),
+  hiredBefore: z.string().optional(),
+  pastExperienceNotes: z.string().optional(),
+  concerns: z.array(z.string()).optional(),
+  whatMatters: z.array(z.string()).optional(),
+  wantsToLearn: z.string().optional(),
+  interiorSensitivities: z.array(z.string()).optional(),
+  pets: z.array(z.string()).optional(),
+  petNotes: z.string().optional(),
+  carefulItems: z.array(z.string()).optional(),
+  carefulItemsNotes: z.string().optional(),
+  walkthroughNotes: z.string().optional(),
+  outcome: z.string().optional(),
+  nextFollowUpAt: z.string().optional(),
+});
+export type SalesSurvey = z.infer<typeof SalesSurvey>;
+
+/** Body for POST /api/surveys — start (or resume) the survey for an appointment. */
+export const CreateSurveyInput = z.object({
+  opportunityId: z.string().min(1),
+});
+export type CreateSurveyInput = z.infer<typeof CreateSurveyInput>;
+
+/**
+ * An appointment the estimator might survey next: used by both the "up next"
+ * list (sorted by how close the appointment is to now) and the search results.
+ */
+export const SurveyCandidate = z.object({
+  opportunityId: z.string(),
+  name: z.string(),
+  jobType: z.string().optional(),
+  appointmentAt: z.string().optional(),
+  surveyId: z.string().optional(),           // set when a survey already exists
+});
+export type SurveyCandidate = z.infer<typeof SurveyCandidate>;
+
+const clearable = <T extends z.ZodTypeAny>(schema: T) => schema.nullable().optional();
+const text = (max: number) => clearable(z.string().max(max));
+
+/**
+ * Body for PATCH /api/surveys/[id] — the autosave payload. Send only the
+ * fields that changed; null clears a value. Choice fields validate against
+ * the canonical vocabularies in lib/surveys/questions.ts, so the app and any
+ * future agent write the same stable answer set.
+ */
+export const SurveyPatch = z
+  .object({
+    projectType: clearable(z.enum(PROJECT_TYPES)),
+    discRead: clearable(z.enum(DISC_READS)),
+    projectDescription: text(5000),
+    surfaces: z.array(z.enum(SURFACES)).optional(),
+    surfacesOther: text(500),
+    damageIssues: z.array(z.enum(DAMAGE_ISSUES)).optional(),
+    damageNotes: text(500),
+    colorsDecided: clearable(z.enum(COLORS_DECIDED)),
+    colorConsultation: clearable(z.enum(COLOR_CONSULTATION)),
+    timeline: clearable(z.enum(TIMELINES)),
+    urgencyDrivers: z.array(z.enum(URGENCY_DRIVERS)).optional(),
+    urgencyNotes: text(500),
+    mainGoals: z.array(z.enum(MAIN_GOALS)).optional(),
+    stakesIfNotDone: text(5000),
+    otherBids: clearable(z.enum(OTHER_BIDS)),
+    whyNotOthers: text(5000),
+    hiredBefore: clearable(z.enum(HIRED_BEFORE)),
+    pastExperienceNotes: text(5000),
+    concerns: z.array(z.enum(CONCERNS)).optional(),
+    whatMatters: z.array(z.enum(WHAT_MATTERS)).optional(),
+    wantsToLearn: text(5000),
+    interiorSensitivities: z.array(z.enum(INTERIOR_SENSITIVITIES)).optional(),
+    pets: z.array(z.enum(PETS)).optional(),
+    petNotes: text(500),
+    carefulItems: z.array(z.enum(CAREFUL_ITEMS)).optional(),
+    carefulItemsNotes: text(500),
+    walkthroughNotes: text(10000),
+    outcome: clearable(z.enum(OUTCOMES)),
+    nextFollowUpAt: clearable(z.string()),
+  })
+  .strict();
+export type SurveyPatch = z.infer<typeof SurveyPatch>;
+
+/** Response contract for GET /api/marketing/roi. */
+export const MarketingReport = z.object({
+  from: z.string().nullable(),                 // applied range (YYYY-MM), null = unbounded
+  to: z.string().nullable(),
+  months: z.array(MarketingMonthRow),          // the grid, for per-source month drill-down
+  sources: z.array(MarketingSourceTotal),      // range totals, spend-heavy sources first
+  paid: z.object({                             // tiles: paid sources only (spend > 0)
+    spend: z.number(),
+    revenue: z.number(),
+    roas: z.number().nullable(),
+    costPerLead: z.number().nullable(),
+  }),
+});
+export type MarketingReport = z.infer<typeof MarketingReport>;

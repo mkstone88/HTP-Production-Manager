@@ -19,10 +19,10 @@ async function getJson<T>(url: string): Promise<T> {
 
 export function SettingsPanel() {
   return (
-    <div className="flex flex-1 flex-col">
+    <div className="flex flex-1 flex-col bg-card">
       <div className="flex items-center gap-2 border-b px-4 py-3">
-        <h1 className="flex items-center gap-2 text-lg font-semibold">
-          <SlidersHorizontal className="size-5" /> Settings
+        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          <SlidersHorizontal className="size-6 text-primary" /> Settings
         </h1>
       </div>
       <div className="space-y-6 p-4 sm:p-6">
@@ -158,7 +158,7 @@ function TemplateEditor({
           value={body}
           onChange={(e) => setBody(e.target.value)}
           rows={10}
-          className="w-full rounded-md border border-input bg-background px-3 py-2 font-mono text-sm"
+          className="w-full rounded-md border border-input bg-card px-3 py-2 font-mono text-sm"
         />
       </div>
       {error && <p className="text-sm text-destructive">{error}</p>}

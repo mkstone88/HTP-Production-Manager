@@ -114,12 +114,12 @@ export function JobDetail({ id }: { id: string }) {
   const j = job.data;
 
   return (
-    <div className="flex flex-1 flex-col">
+    <div className="flex flex-1 flex-col bg-card">
       <div className="border-b px-4 py-3">
         <div className="text-xs uppercase tracking-wide text-muted-foreground">
           {j.jobNumber || "—"}
         </div>
-        <h1 className="text-lg font-semibold">
+        <h1 className="text-2xl font-bold tracking-tight">
           {j.name || j.customerName || "Job"}
         </h1>
         {(j.customerName || j.address) && (
@@ -143,7 +143,7 @@ export function JobDetail({ id }: { id: string }) {
               id="status"
               value={status}
               onChange={(e) => setStatus(e.target.value as typeof statuses[number])}
-              className="h-11 rounded-md border border-input bg-background px-3 text-sm"
+              className="h-11 rounded-md border border-input bg-card px-3 text-sm"
             >
               <option value="">—</option>
               {statuses.map((s) => (
@@ -161,7 +161,7 @@ export function JobDetail({ id }: { id: string }) {
               onChange={(e) =>
                 setProjectType(e.target.value as typeof projectTypes[number])
               }
-              className="h-11 rounded-md border border-input bg-background px-3 text-sm"
+              className="h-11 rounded-md border border-input bg-card px-3 text-sm"
             >
               <option value="">—</option>
               {projectTypes.map((t) => (
@@ -203,7 +203,7 @@ export function JobDetail({ id }: { id: string }) {
             id="crew"
             value={assignedSubId}
             onChange={(e) => setAssignedSubId(e.target.value)}
-            className="h-11 rounded-md border border-input bg-background px-3 text-sm"
+            className="h-11 rounded-md border border-input bg-card px-3 text-sm"
           >
             <option value="">Unassigned</option>
             {(subs.data ?? []).map((s) => (
@@ -221,7 +221,7 @@ export function JobDetail({ id }: { id: string }) {
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             rows={4}
-            className="rounded-md border border-input bg-background px-3 py-2 text-sm"
+            className="rounded-md border border-input bg-card px-3 py-2 text-sm"
           />
         </div>
 
@@ -231,7 +231,7 @@ export function JobDetail({ id }: { id: string }) {
           </div>
         )}
 
-        <div className="sticky bottom-0 -mx-4 flex gap-2 border-t bg-background/95 p-4 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0">
+        <div className="sticky bottom-0 -mx-4 flex gap-2 border-t bg-card/95 p-4 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0">
           <Button
             type="submit"
             disabled={save.isPending}

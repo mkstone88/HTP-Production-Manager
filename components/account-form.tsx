@@ -43,9 +43,9 @@ export function AccountForm() {
   const mismatch = confirm.length > 0 && newPassword !== confirm;
 
   return (
-    <div className="flex flex-1 flex-col">
+    <div className="flex flex-1 flex-col bg-card">
       <div className="border-b px-4 py-3">
-        <h1 className="text-lg font-semibold">Account</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Account</h1>
       </div>
 
       <div className="grid max-w-md gap-6 p-4 sm:p-6">

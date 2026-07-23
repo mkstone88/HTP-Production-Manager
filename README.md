@@ -16,19 +16,21 @@ The app maps logical names → Airtable columns in [lib/airtable/mapping.ts](lib
 The Hometown Operations base is the source of truth — adjust the mapping if
 columns are renamed.
 
-| Logical entity | Airtable table |
-|----------------|----------------|
-| Job            | `Projects`     |
-| Subcontractor  | `Crews`        |
-| Contact        | `Contacts`     |
-| Login account  | `App Users`    |
+| Logical entity | Airtable table    |
+|----------------|-------------------|
+| Job            | `Projects`        |
+| Subcontractor  | `Crews`           |
+| Contact        | `NEW - Contacts`  |
+| Opportunity    | `NEW - Opportunities` |
+| Login account  | `App Users`       |
 
 Notes:
 
-- `Job Name` is a formula (`{Job Number}-{Customer} {Project Type}`). The app
-  cannot write to it; it is computed when you set the inputs.
-- `Street Address (from Customer)` and `Name (from Customer)` are lookups —
-  read-only on the Project. Edit the Contact directly to change them.
+- `Job Name` is a formula (`{Job Number}-{NEW - Contact} {Project Type}`). The
+  app cannot write to it; it is computed when you set the inputs.
+- `Name (from NEW - Contact)` and `Effective Job Address` are computed —
+  read-only on the Project. Edit the Contact (or the opportunity's job-site
+  address / the project's Job Address Override) to change them.
 - `Crews.Status` is a 5-state singleSelect (Active / Onboarding / Inactive /
   Prospect / Do Not Use!), exposed as a dropdown in the sub form.
 

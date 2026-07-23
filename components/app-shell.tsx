@@ -132,7 +132,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* Mobile top bar */}
-      <header className="flex items-center justify-between border-b bg-background px-4 py-3 md:hidden">
+      <header className="flex items-center justify-between border-b bg-card px-4 py-3 md:hidden">
         <Link href="/" className="flex items-center">
           <Image
             src="/branding/logo.jpg"
@@ -158,7 +158,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {/* Mobile sub-nav — the active section's pages */}
       {subItems.length > 0 && (
         <nav
-          className="flex gap-1 overflow-x-auto border-b bg-background px-2 py-2 md:hidden"
+          className="flex gap-1 overflow-x-auto border-b bg-card px-2 py-2 md:hidden"
           aria-label={current ? `${current.label} pages` : "Pages"}
         >
           {subItems.map((item) => {
@@ -171,7 +171,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 className={cn(
                   "flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3 text-sm font-medium transition-colors",
                   active
-                    ? "bg-foreground text-background"
+                    ? "bg-primary text-primary-foreground shadow-sm"
                     : "text-muted-foreground hover:bg-muted/60",
                 )}
               >
@@ -191,7 +191,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {/* Mobile bottom nav — section switcher */}
       {showSwitcher && (
         <nav
-          className="fixed inset-x-0 bottom-0 z-30 grid border-t bg-background pb-[env(safe-area-inset-bottom)] md:hidden"
+          className="fixed inset-x-0 bottom-0 z-30 grid border-t bg-card pb-[env(safe-area-inset-bottom)] md:hidden"
           style={{ gridTemplateColumns: `repeat(${sections.length}, minmax(0, 1fr))` }}
           aria-label="Sections"
         >
@@ -226,13 +226,13 @@ function SectionTab({
       href={href}
       className={cn(
         "relative flex flex-col items-center justify-center gap-1 px-1 py-2 text-center text-[11px] leading-tight transition-colors",
-        active ? "text-[var(--htp-blue)] dark:text-[var(--primary)]" : "text-muted-foreground",
+        active ? "text-primary" : "text-muted-foreground",
       )}
     >
       {active && (
         <span
           aria-hidden
-          className="absolute inset-x-6 top-0 h-0.5 rounded-full bg-[var(--htp-blue)] dark:bg-[var(--primary)]"
+          className="absolute inset-x-6 top-0 h-0.5 rounded-full bg-primary"
         />
       )}
       <Icon className="size-5" />

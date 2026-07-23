@@ -281,7 +281,7 @@ function CheckPill({
         "inline-flex h-8 items-center gap-1.5 rounded-full border px-2.5 text-xs transition-colors",
         checked
           ? "border-emerald-600/50 bg-emerald-50 text-emerald-900 dark:bg-emerald-900/30 dark:text-emerald-100"
-          : "border-input bg-background text-muted-foreground hover:bg-muted/40",
+          : "border-input bg-card text-muted-foreground hover:bg-muted/40",
       )}
     >
       <span
@@ -352,7 +352,7 @@ function CrewPill({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="inline-flex h-8 items-center gap-1.5 rounded-full border border-dashed border-input bg-background px-2.5 text-xs text-muted-foreground transition-colors hover:bg-muted/40"
+        className="inline-flex h-8 items-center gap-1.5 rounded-full border border-dashed border-input bg-card px-2.5 text-xs text-muted-foreground transition-colors hover:bg-muted/40"
       >
         <Plus className="size-3.5" />
         <span>Crew</span>
@@ -381,7 +381,7 @@ function CrewMenu({
   onPick: (id: string | null) => void;
 }) {
   return (
-    <div className="absolute left-0 top-full z-30 mt-1 max-h-64 w-56 overflow-auto rounded-md border bg-background shadow-md">
+    <div className="absolute left-0 top-full z-30 mt-1 max-h-64 w-56 overflow-auto rounded-md border bg-card shadow-md">
       {currentId && (
         <button
           type="button"
@@ -447,7 +447,7 @@ function SendEmailPill({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex h-8 items-center gap-1.5 rounded-full border border-dashed border-input bg-background px-2.5 text-xs text-muted-foreground transition-colors hover:bg-muted/40"
+        className="inline-flex h-8 items-center gap-1.5 rounded-full border border-dashed border-input bg-card px-2.5 text-xs text-muted-foreground transition-colors hover:bg-muted/40"
       >
         <Mail className="size-3.5" />
         <span>Send email</span>
@@ -502,7 +502,7 @@ function SendEmailDialog({
     <div className="fixed inset-0 z-40" onClick={onClose}>
       <div className="absolute inset-0 bg-black/30" />
       <div
-        className="absolute left-1/2 top-1/2 w-[min(26rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background p-4 shadow-lg"
+        className="absolute left-1/2 top-1/2 w-[min(26rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-card p-4 shadow-lg"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-2 text-sm font-semibold">
@@ -535,7 +535,7 @@ function SendEmailDialog({
                 id={`tpl-${job.id}`}
                 value={selectedId}
                 onChange={(e) => setPicked(e.target.value)}
-                className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                className="h-9 w-full rounded-md border border-input bg-card px-2 text-sm"
               >
                 <option value="">Choose a template…</option>
                 {templates.map((t) => (
@@ -585,7 +585,7 @@ function SchedulePill({ job }: { job: TriageJob }) {
   return (
     <Link
       href={`/schedule?focus=${job.id}`}
-      className="inline-flex h-8 items-center gap-1.5 rounded-full border border-dashed border-input bg-background px-2.5 text-xs text-muted-foreground transition-colors hover:bg-muted/40"
+      className="inline-flex h-8 items-center gap-1.5 rounded-full border border-dashed border-input bg-card px-2.5 text-xs text-muted-foreground transition-colors hover:bg-muted/40"
     >
       <Plus className="size-3.5" />
       <span>Schedule</span>

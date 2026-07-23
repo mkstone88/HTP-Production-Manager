@@ -10,13 +10,14 @@
 export const tables = {
   jobs: "Projects",
   subs: "Crews",
-  contacts: "Contacts",
   materialsExpenses: "Materials Expenses",
   users: "App Users",
   // Sales / appointment-setting side (parallel-build "NEW - " tables).
   opportunities: "NEW - Opportunities",
   opportunityContacts: "NEW - Contacts",
   sourceMapping: "NEW - Source Mapping",
+  marketingSpend: "NEW - Marketing Spend",
+  salesSurveys: "NEW - Sales Surveys",
   weeklyGoals: "NEW - Weekly Goals",
   emailTemplates: "Email Templates",
 } as const;
@@ -35,10 +36,10 @@ export const tables = {
 export const jobFields = {
   name: "Job Name",                              // formula (read-only)
   jobNumber: "Job Number",                       // singleLineText (writable)
-  // Customer identity now lives on the new-schema link (NEW - Contact). The
-  // legacy "Customer" link/lookups still exist in Airtable during the migration
-  // but the app no longer reads them. See lib/airtable/deals.ts / leads.ts for
-  // the setter/sales side of the same NEW - Contacts table.
+  // Customer identity lives on the new-schema link (NEW - Contact). The old
+  // "Customer" link/lookups are decommissioned (renamed "zz LEGACY ..." in
+  // Airtable, nothing reads or writes them). See lib/airtable/deals.ts /
+  // leads.ts for the setter/sales side of the same NEW - Contacts table.
   customer: "NEW - Contact",                     // linked record -> NEW - Contacts
   customerName: "Name (from NEW - Contact)",     // lookup (read-only)
   address: "Effective Job Address",              // formula — job-site address if set on the opportunity, else the customer's street
@@ -85,21 +86,9 @@ export const subFields = {
   notes: "Notes",
 } as const;
 
-/**
- * Contact (= Airtable "Contacts" record). Read-only from the app's perspective except
- * for create — we don't edit existing contacts here.
- */
-export const contactFields = {
-  name: "Name",                  // formula: First & " " & Last (read-only)
-  firstName: "First Name",
-  lastName: "Last Name",
-  email: "Email",
-  phone: "Phone Number",
-  street: "Street Address ",     // note: trailing space
-  city: "City",
-  state: "State",
-  zip: "Zip Code",
-} as const;
+// The legacy "Contacts" table is decommissioned (renamed "zz LEGACY - Contacts"
+// in Airtable). Customers live in NEW - Contacts — see opportunityContactFields
+// below; ContactsRepo (lib/airtable/contacts.ts) reads/writes that table.
 
 /**
  * Materials Expense (= Airtable "Materials Expenses" record). One row per vendor
@@ -180,6 +169,7 @@ export const opportunityFields = {
   ghlOpportunityId: "GHL Opportunity ID",      // singleLineText (correlation key)
   paintScoutQuoteId: "Paint Scout Quote ID",   // singleLineText (correlation key)
   notes: "Notes",                              // multilineText
+  surveys: "NEW - Sales Surveys",              // reverse link -> the appointment's sales survey(s)
 } as const;
 
 export const opportunityContactFields = {
@@ -201,6 +191,62 @@ export const sourceMappingFields = {
   rawValue: "Raw Value",
   canonicalSource: "Canonical Source",
   notes: "Notes",
+} as const;
+
+/**
+ * Sales survey (= Airtable "NEW - Sales Surveys" record). Digital version of
+ * the paper Residential Project Survey, taken during the sales appointment.
+ * One row per survey, linked to the opportunity; every answer is optional and
+ * autosaved field-by-field by the app. Choice lists mirror
+ * lib/surveys/questions.ts — change both together.
+ */
+export const salesSurveyFields = {
+  name: "Survey",                              // singleLineText (primary) — "<Contact> — <date>"
+  opportunity: "Opportunity",                  // linked record -> NEW - Opportunities
+  projectType: "Project Type",                 // singleSelect: Interior | Exterior | Both — drives branching
+  surveyedBy: "Surveyed By",                   // singleLineText (user email)
+  surveyedAt: "Surveyed At",                   // dateTime
+  discRead: "DISC Read",                       // singleSelect: D | I | S | C
+  projectDescription: "Project Description",   // multilineText (Q1)
+  surfaces: "Surfaces",                        // multipleSelects (Q2)
+  surfacesOther: "Surfaces Other",             // singleLineText
+  damageIssues: "Damage Issues",               // multipleSelects (Q3)
+  damageNotes: "Damage Notes",                 // singleLineText
+  colorsDecided: "Colors Decided",             // singleSelect (Q4)
+  colorConsultation: "Color Consultation",     // singleSelect (Q4a)
+  timeline: "Timeline",                        // singleSelect (Q5)
+  urgencyDrivers: "Urgency Drivers",           // multipleSelects (Q5a)
+  urgencyNotes: "Urgency Notes",               // singleLineText
+  mainGoals: "Main Goals",                     // multipleSelects (Q6)
+  stakesIfNotDone: "Stakes If Not Done",       // multilineText (Q6a)
+  otherBids: "Other Bids",                     // singleSelect (Q7)
+  whyNotOthers: "Why Not Others",              // multilineText (Q7a)
+  hiredBefore: "Hired Painters Before",        // singleSelect (Q8)
+  pastExperienceNotes: "Past Experience Notes",// multilineText (Q8a/b)
+  concerns: "Concerns",                        // multipleSelects (Q9)
+  whatMatters: "What Matters",                 // multipleSelects (Q10)
+  wantsToLearn: "Wants To Learn",              // multilineText (Q11)
+  interiorSensitivities: "Interior Sensitivities", // multipleSelects (interior only)
+  pets: "Pets",                                // multipleSelects (Q12)
+  petNotes: "Pet Notes",                       // singleLineText
+  carefulItems: "Careful Items",               // multipleSelects (Q13)
+  carefulItemsNotes: "Careful Items Notes",    // singleLineText
+  walkthroughNotes: "Walkthrough Notes",       // multilineText
+  outcome: "Outcome",                          // singleSelect
+  nextFollowUpAt: "Next Follow-Up",            // dateTime — mirrored to the opp's Sales Follow-Up At
+} as const;
+
+/**
+ * Marketing spend (= Airtable "NEW - Marketing Spend" record). One row per
+ * source per month — the cost side of ROI-per-source (revenue comes from
+ * opportunities). Month is a date field pinned to the 1st of the month.
+ */
+export const marketingSpendFields = {
+  name: "Name",                                // singleLineText (primary) — "<Source> — <YYYY-MM>"
+  month: "Month",                              // date (1st of month)
+  source: "Source",                            // singleSelect (same canonical choices as opportunities)
+  amount: "Amount",                            // currency
+  notes: "Notes",                              // multilineText
 } as const;
 
 /**
@@ -226,7 +272,6 @@ export const weeklyGoalFields = {
 
 export type JobFieldKey = keyof typeof jobFields;
 export type SubFieldKey = keyof typeof subFields;
-export type ContactFieldKey = keyof typeof contactFields;
 export type MaterialsExpenseFieldKey = keyof typeof materialsExpenseFields;
 export type UserFieldKey = keyof typeof userFields;
 export type OpportunityFieldKey = keyof typeof opportunityFields;
