@@ -133,7 +133,7 @@ export function MarketingPanel() {
   return (
     <div className="space-y-6 p-4 sm:p-6">
       <div>
-        <h1 className="text-xl font-semibold tracking-tight">Marketing ROI</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Marketing ROI</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Spend vs what each source&apos;s leads turned into. Cohort view: a
           month&apos;s revenue is credited to the month the lead came in, so spend
@@ -160,7 +160,7 @@ export function MarketingPanel() {
             type="month"
             value={range.from}
             onChange={(e) => setRange((r0) => ({ ...r0, from: e.target.value }))}
-            className="rounded-md border border-input bg-background px-2 py-1 text-sm text-foreground"
+            className="rounded-md border border-input bg-card px-2 py-1 text-sm text-foreground"
           />
         </label>
         <label className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -169,7 +169,7 @@ export function MarketingPanel() {
             type="month"
             value={range.to}
             onChange={(e) => setRange((r0) => ({ ...r0, to: e.target.value }))}
-            className="rounded-md border border-input bg-background px-2 py-1 text-sm text-foreground"
+            className="rounded-md border border-input bg-card px-2 py-1 text-sm text-foreground"
           />
         </label>
       </div>
@@ -465,7 +465,7 @@ function MonthEndSpendForm() {
             type="month"
             value={month}
             onChange={(e) => setMonth(e.target.value)}
-            className="rounded-md border border-input bg-background px-2 py-1.5 text-sm font-normal text-foreground"
+            className="rounded-md border border-input bg-card px-2 py-1.5 text-sm font-normal text-foreground"
           />
         </label>
       </div>
@@ -511,7 +511,7 @@ function MonthEndSpendForm() {
                       onChange={(e) =>
                         setDraft((d) => ({ ...d, [source]: e.target.value }))
                       }
-                      className="w-28 rounded-md border border-input bg-background px-2 py-1.5 text-right text-sm text-foreground"
+                      className="w-28 rounded-md border border-input bg-card px-2 py-1.5 text-right text-sm text-foreground"
                     />
                   </span>
                 </label>

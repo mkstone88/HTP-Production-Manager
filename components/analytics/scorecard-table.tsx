@@ -39,7 +39,7 @@ export function ScorecardTable() {
   return (
     <div className="space-y-4 p-4 sm:p-6">
       <div>
-        <h1 className="text-xl font-semibold tracking-tight">Weekly scorecard</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Weekly scorecard</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Week-of-activity view (Mon–Sun): leads that arrived, appointments run, jobs
           and dollars sold, revenue invoiced, and cash collected — each in the week it

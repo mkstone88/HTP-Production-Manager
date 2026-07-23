@@ -39,9 +39,9 @@ export function UsersAdmin() {
   });
 
   return (
-    <div className="flex flex-1 flex-col">
+    <div className="flex flex-1 flex-col bg-card">
       <div className="flex items-center gap-2 border-b px-4 py-3">
-        <h1 className="text-lg font-semibold">Users</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Users</h1>
         <Button
           size="sm"
           className="ml-auto h-10 px-3 sm:h-9"

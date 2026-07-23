@@ -68,8 +68,8 @@ export function SurveyPicker() {
   return (
     <div className="mx-auto w-full max-w-2xl space-y-5 p-4 sm:p-6">
       <div>
-        <h1 className="flex items-center gap-2 text-xl font-semibold tracking-tight">
-          <NotebookPen className="size-5" /> Project surveys
+        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          <NotebookPen className="size-6 text-primary" /> Project surveys
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Pick the appointment you&apos;re sitting in — answers save as you tap.
@@ -83,7 +83,7 @@ export function SurveyPicker() {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Search any contact…"
-          className="w-full rounded-md border border-input bg-background py-2.5 pl-9 pr-3 text-sm text-foreground"
+          className="w-full rounded-md border border-input bg-card py-2.5 pl-9 pr-3 text-sm text-foreground"
         />
       </label>
 

@@ -138,7 +138,7 @@ export function JobQuickEdit({ jobId, onClose }: Props) {
         role="dialog"
         aria-modal="true"
         className={cn(
-          "relative w-full max-w-md overflow-hidden bg-background shadow-xl",
+          "relative w-full max-w-md overflow-hidden bg-card shadow-xl",
           "rounded-t-2xl sm:rounded-2xl",
           "animate-in slide-in-from-bottom duration-200 sm:slide-in-from-bottom-0 sm:zoom-in-95",
           "max-h-[85dvh]",
@@ -195,7 +195,7 @@ export function JobQuickEdit({ jobId, onClose }: Props) {
                     setStatus(v);
                     save.mutate({ id, patch: { status: v || null } });
                   }}
-                  className="h-11 rounded-md border border-input bg-background px-3 text-sm"
+                  className="h-11 rounded-md border border-input bg-card px-3 text-sm"
                 >
                   <option value="">—</option>
                   {statuses.map((s) => (
@@ -219,7 +219,7 @@ export function JobQuickEdit({ jobId, onClose }: Props) {
                       patch: { assignedSubId: v || null },
                     });
                   }}
-                  className="h-11 rounded-md border border-input bg-background px-3 text-sm"
+                  className="h-11 rounded-md border border-input bg-card px-3 text-sm"
                 >
                   <option value="">Unassigned</option>
                   {activeSubs.map((s) => (
@@ -252,7 +252,7 @@ export function JobQuickEdit({ jobId, onClose }: Props) {
                     debouncedSaveNotes(e.target.value, id);
                   }}
                   rows={3}
-                  className="rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  className="rounded-md border border-input bg-card px-3 py-2 text-sm"
                 />
               </div>
 

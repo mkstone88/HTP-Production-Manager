@@ -33,8 +33,8 @@ export function ReconcilePanel() {
   return (
     <div className="space-y-5 p-4 sm:p-6">
       <div>
-        <h1 className="flex items-center gap-2 text-xl font-semibold tracking-tight">
-          <GitCompare className="size-5" />
+        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          <GitCompare className="size-6 text-primary" />
           Reconcile
         </h1>
         <p className="mt-1 max-w-prose text-sm text-muted-foreground">
@@ -151,7 +151,7 @@ function MissedSweep() {
           <select
             value={days}
             onChange={(e) => setDays(Number(e.target.value))}
-            className="rounded-md border border-input bg-background px-2 py-1.5 text-sm"
+            className="rounded-md border border-input bg-card px-2 py-1.5 text-sm"
           >
             {[7, 14, 30, 60, 90].map((d) => (
               <option key={d} value={d}>

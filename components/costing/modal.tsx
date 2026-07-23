@@ -37,7 +37,7 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         className={cn(
-          "relative w-full max-w-md overflow-hidden bg-background shadow-xl",
+          "relative w-full max-w-md overflow-hidden bg-card shadow-xl",
           "rounded-t-2xl sm:rounded-2xl",
           "animate-in slide-in-from-bottom duration-200 sm:slide-in-from-bottom-0 sm:zoom-in-95",
           "max-h-[88dvh]",

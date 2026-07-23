@@ -8,6 +8,9 @@
   --htp-blue: #0e3f86;
   --htp-blue-dark: #0a3168;
   --htp-blue-soft: #eaf0f9;
+  /* Action blue — brighter than the logo navy so buttons/links pop on the gray
+     canvas (PaintScout-style). Keep --htp-blue for brand/logo-adjacent uses. */
+  --htp-blue-bright: #1d5bd8;
   --htp-red: #e11d2a;
   --htp-red-dark: #b81621;
   --htp-red-soft: #fce8ea;
@@ -17,19 +20,21 @@
   --htp-amber: #b45309;
   --htp-amber-soft: #fdf1de;
 
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: var(--htp-blue);
+  --radius: 0.75rem;
+  /* PaintScout-style surfaces: cool gray canvas, white cards floating on it,
+     slate (blue-tinted) ink instead of pure black. */
+  --background: #f2f4f8;
+  --foreground: #26324b;
+  --card: #ffffff;
+  --card-foreground: #26324b;
+  --popover: #ffffff;
+  --popover-foreground: #26324b;
+  --primary: var(--htp-blue-bright);
   --primary-foreground: #ffffff;
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
+  --secondary: #eef1f6;
+  --secondary-foreground: #33415e;
+  --muted: #eef1f6;
+  --muted-foreground: #64748b;
   --accent: var(--htp-blue-soft);
   --accent-foreground: var(--htp-blue-dark);
   --destructive: var(--htp-red);
@@ -38,17 +43,17 @@
   --success-foreground: #ffffff;
   --warning: var(--htp-amber);
   --warning-foreground: #ffffff;
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: var(--htp-blue);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: var(--htp-blue);
+  --border: #e4e8f0;
+  --input: #d9dfe9;
+  --ring: var(--htp-blue-bright);
+  --sidebar: #ffffff;
+  --sidebar-foreground: #26324b;
+  --sidebar-primary: var(--htp-blue-bright);
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: var(--htp-blue-soft);
   --sidebar-accent-foreground: var(--htp-blue-dark);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: var(--htp-blue);
+  --sidebar-border: #e4e8f0;
+  --sidebar-ring: var(--htp-blue-bright);
 }
 
 .dark {

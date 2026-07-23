@@ -32,12 +32,12 @@ export function SourcesPanel() {
 
   return (
     <div className="flex flex-1 flex-col">
-      <div className="flex items-center gap-2 border-b px-4 py-3">
-        <h1 className="flex items-center gap-2 text-lg font-semibold">
-          <Waypoints className="size-5" /> Sources
+      <div className="flex items-center gap-2 border-b bg-card px-4 py-3">
+        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          <Waypoints className="size-6 text-primary" /> Sources
         </h1>
       </div>
-      <div role="tablist" className="flex gap-1 border-b px-2 py-2 sm:px-3">
+      <div role="tablist" className="flex gap-1 border-b bg-card px-2 py-2 sm:px-3">
         <TabButton active={tab === "fix"} onClick={() => setTab("fix")}>
           Fix sources
           {needsFixing > 0 && (
@@ -63,7 +63,7 @@ function TabButton({ active, onClick, children }: { active: boolean; onClick: ()
       onClick={onClick}
       className={cn(
         "h-10 rounded-md px-3 text-sm font-medium transition-colors",
-        active ? "bg-foreground text-background" : "text-muted-foreground hover:bg-muted/60",
+        active ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted/60",
       )}
     >
       {children}
@@ -222,7 +222,7 @@ function SourceRow({
         <select
           value={source}
           onChange={(e) => setSource(e.target.value)}
-          className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+          className="h-9 rounded-md border border-input bg-card px-2 text-sm"
         >
           <option value="">Set source…</option>
           {LeadSource.options.map((s) => (
@@ -373,14 +373,14 @@ function FunnelTab() {
           <button
             type="button"
             onClick={() => setView("byMonth")}
-            className={cn("px-3 py-1.5 font-medium", view === "byMonth" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground")}
+            className={cn("px-3 py-1.5 font-medium", view === "byMonth" ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground")}
           >
             By month
           </button>
           <button
             type="button"
             onClick={() => setView("bySource")}
-            className={cn("border-l border-input px-3 py-1.5 font-medium", view === "bySource" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground")}
+            className={cn("border-l border-input px-3 py-1.5 font-medium", view === "bySource" ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground")}
           >
             By source
           </button>
@@ -392,7 +392,7 @@ function FunnelTab() {
             <select
               value={source}
               onChange={(e) => setSource(e.target.value)}
-              className="rounded-md border border-input bg-background px-2 py-1.5 text-sm"
+              className="rounded-md border border-input bg-card px-2 py-1.5 text-sm"
             >
               <option value="All">All sources</option>
               {sources.map((s) => <option key={s} value={s}>{s}</option>)}
@@ -404,7 +404,7 @@ function FunnelTab() {
             <select
               value={selectedMonth}
               onChange={(e) => setMonth(e.target.value)}
-              className="rounded-md border border-input bg-background px-2 py-1.5 text-sm"
+              className="rounded-md border border-input bg-card px-2 py-1.5 text-sm"
             >
               {allMonths.map((m) => <option key={m} value={m}>{monthLabel(m)}</option>)}
             </select>
@@ -415,14 +415,14 @@ function FunnelTab() {
           <button
             type="button"
             onClick={() => setBasis("activity")}
-            className={cn("px-3 py-1.5 font-medium", basis === "activity" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground")}
+            className={cn("px-3 py-1.5 font-medium", basis === "activity" ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground")}
           >
             When it happened
           </button>
           <button
             type="button"
             onClick={() => setBasis("cohort")}
-            className={cn("border-l border-input px-3 py-1.5 font-medium", basis === "cohort" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground")}
+            className={cn("border-l border-input px-3 py-1.5 font-medium", basis === "cohort" ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground")}
           >
             Lead cohort
           </button>

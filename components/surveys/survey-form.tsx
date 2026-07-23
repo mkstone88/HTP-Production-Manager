@@ -366,7 +366,7 @@ export function SurveyForm({ surveyId }: { surveyId: string }) {
               const iso = e.target.value ? new Date(e.target.value).toISOString() : null;
               setField("nextFollowUpAt", iso);
             }}
-            className="rounded-md border border-input bg-background px-2 py-2 text-sm text-foreground"
+            className="rounded-md border border-input bg-card px-2 py-2 text-sm text-foreground"
           />
         </Question>
       </Section>
@@ -422,7 +422,7 @@ function chipClass(active: boolean): string {
     "rounded-full border px-3 py-1.5 text-sm font-medium transition-colors",
     active
       ? "border-primary bg-primary text-primary-foreground"
-      : "border-border bg-background text-muted-foreground hover:bg-muted",
+      : "border-border bg-card text-muted-foreground hover:bg-muted",
   );
 }
 
@@ -498,7 +498,7 @@ function TextBox({
       value={value ?? ""}
       onChange={(e) => onChange(e.target.value)}
       rows={rows}
-      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground"
+      className="w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground"
     />
   );
 }
@@ -518,7 +518,7 @@ function TextLine({
       value={value ?? ""}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
-      className="mt-1.5 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground"
+      className="mt-1.5 w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground"
     />
   );
 }
