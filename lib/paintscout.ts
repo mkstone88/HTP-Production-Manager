@@ -5,7 +5,11 @@ import "server-only";
 
 const BASE = "https://openapi.paintscout.com/v2";
 // Accept the Vercel var name (PaintScout_API_Key) and the documented all-caps one.
-const KEY = process.env.PaintScout_API_Key || process.env.PAINTSCOUT_API_TOKEN || "";
+const RAW_KEY =
+  process.env.PaintScout_API_Key || process.env.PAINTSCOUT_API_TOKEN || "";
+// Paste artifacts (wrapping quotes, stray whitespace) make PaintScout return
+// 401 unauthorized even though the key itself is valid — strip them.
+const KEY = RAW_KEY.trim().replace(/^["']+|["']+$/g, "").trim();
 
 /** Whether a PaintScout key is configured. Callers can skip gracefully if not. */
 export function hasPaintScoutKey(): boolean {
@@ -30,7 +34,15 @@ async function get(path: string): Promise<Record<string, unknown>> {
     cache: "no-store",
   });
   if (!res.ok) {
-    throw new Error(`PaintScout ${res.status} on ${path}: ${await res.text()}`);
+    // On auth failures, fingerprint the key the server actually loaded (length
+    // + edges only) so a stale/mangled env var is diagnosable from the UI.
+    const hint =
+      res.status === 401
+        ? ` — sent key: ${KEY.length} chars, ${KEY.slice(0, 2)}…${KEY.slice(-2)}${
+            RAW_KEY !== KEY ? " (stray quotes/whitespace were stripped)" : ""
+          }`
+        : "";
+    throw new Error(`PaintScout ${res.status} on ${path}: ${await res.text()}${hint}`);
   }
   return res.json();
 }
