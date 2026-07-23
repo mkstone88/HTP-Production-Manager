@@ -1,6 +1,7 @@
 import "server-only";
 
 import { airtable, type AirtableRecord } from "./client";
+import { escapeFormulaValue } from "./formula";
 import { opportunityFields, tables } from "./mapping";
 import { OpportunityContactsRepo } from "./opportunity-contacts";
 import { SourceMappingRepo } from "./source-mapping";
@@ -19,9 +20,6 @@ function opt(v: unknown): string | undefined {
 }
 function firstLinkId(v: unknown): string | undefined {
   return Array.isArray(v) && v.length > 0 ? String(v[0]) : undefined;
-}
-function escapeFormula(v: string): string {
-  return v.replace(/'/g, "\\'");
 }
 
 function toRow(rec: AirtableRecord<OppFields>, name?: string): SourceReviewRow {
@@ -59,7 +57,7 @@ export const SourcesRepo = {
 
   /** Find any lead by name or email to correct a wrongly-attributed source. */
   async search(query: string): Promise<SourceReviewRow[]> {
-    const q = escapeFormula(query.trim().toLowerCase());
+    const q = escapeFormulaValue(query.trim().toLowerCase());
     if (!q) return [];
     const recs = await airtable.listAll<OppFields>(tables.opportunities, {
       filterByFormula: `OR(SEARCH('${q}', LOWER({${f.name}})), SEARCH('${q}', LOWER({${f.matchEmail}})))`,
@@ -97,17 +95,15 @@ export const SourcesRepo = {
     await SourceMappingRepo.upsert(rawSource, source);
 
     const siblings = await airtable.listAll<OppFields>(tables.opportunities, {
-      filterByFormula: `AND(OR({${f.source}}='${NEEDS_REVIEW}', {${f.source}}=BLANK()), LOWER({${f.rawSource}})='${escapeFormula(
+      filterByFormula: `AND(OR({${f.source}}='${NEEDS_REVIEW}', {${f.source}}=BLANK()), LOWER({${f.rawSource}})='${escapeFormulaValue(
         rawSource.toLowerCase(),
       )}')`,
       fields: [f.source],
     });
-    let applied = 0;
-    for (const s of siblings) {
-      if (s.id === id) continue;
-      await airtable.update<OppFields>(tables.opportunities, s.id, { [f.source]: source });
-      applied++;
-    }
-    return { applied };
+    const targets = siblings
+      .filter((s) => s.id !== id)
+      .map((s) => ({ id: s.id, fields: { [f.source]: source } }));
+    await airtable.updateMany<OppFields>(tables.opportunities, targets);
+    return { applied: targets.length };
   },
 };

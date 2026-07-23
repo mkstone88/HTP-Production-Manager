@@ -70,17 +70,18 @@ analytics) outpacing the discipline of the original core.
 - **B3 (High UX) — MOSTLY FIXED 2026-07-23: Silent rollbacks.** jobs-list
   crew assign and triage checkboxes now show a rollback error banner
   (role="alert", names the job); login form catches network failures.
-  Still open: survey autosave badge claims "retrying" but never retries;
-  a shared toast primitive is still worth extracting eventually.
-- **B4 (Medium): Formula escaping wrong in five places** (`leads.ts`,
-  `sources.ts`, `opportunity-contacts.ts`, `source-mapping.ts`,
-  `marketing-spend.ts`): only `'` escaped, not `\`. Trailing `\` → 422;
-  `\'` can inject formula terms. `users.ts` has the correct pattern —
-  extract one shared helper.
-- **B5 (Medium): No 429 handling/throttling in `lib/airtable/client.ts`.**
-  Sequential write loops (source remember, reconcile relinks, backfill) can
-  trip Airtable's 5 req/s limit mid-loop → partial state. Add
-  Retry-After-honoring retry + token bucket; batch endpoints for loops.
+  Survey autosave now genuinely retries — failed fields queue and re-send
+  with the next save, and the badge is a tap-to-retry button (2026-07-23).
+  Still open: a shared toast primitive is worth extracting eventually.
+- **B4 (Medium) — FIXED 2026-07-23:** Formula escaping wrong in five
+  places. Now one shared `escapeFormulaValue` in `lib/airtable/formula.ts`
+  (backslash-first, both quote styles), used by all six repos incl.
+  `users.ts`; covered by unit tests.
+- **B5 (Medium) — FIXED 2026-07-23:** `client.ts` now throttles to
+  4 req/s and retries 429/5xx with backoff honoring Retry-After; new
+  `updateMany` batches 10 records/PATCH (the setSource sibling loop uses
+  it). Single-record lookups now pass `maxRecords`. Reconcile relink loop
+  still does per-record updates — convert opportunistically.
 - **B6 (Low): Timezone drift.** Triage "today" is UTC (off-by-one after
   ~7pm Central); sales/marketing analytics bucket months by UTC while the
   scorecard uses Central. Shared `centralToday()`/`centralMonth()` helpers.
@@ -125,12 +126,12 @@ analytics) outpacing the discipline of the original core.
 
 ## 5. Missing safety net
 
-Zero tests, no CI. Pure modules (`lib/leads/cadence.ts`,
-`lib/jobs/staging.ts`, `lib/costing/dashboard.ts`,
-`lib/analytics/scorecard.ts`, escape helper) are perfectly shaped for cheap
-unit tests — every timezone/escaping bug above would have been caught.
-~Half a day: vitest + ~6 spec files + GitHub Action running lint + tsc +
-vitest on PRs.
+**ADDED 2026-07-23:** vitest with 6 spec files (38 tests) over the pure
+modules — formula escaping, staging, cadence, costing KPIs, scorecard
+Central-time date math, and the client's retry/batching (mocked fetch) —
+plus `.github/workflows/ci.yml` running lint + tsc + tests on PRs and
+pushes to main. Every new date/formula fix should land with a regression
+test here.
 
 ## Order of attack
 

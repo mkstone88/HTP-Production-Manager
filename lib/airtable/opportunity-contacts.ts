@@ -1,6 +1,7 @@
 import "server-only";
 
 import { airtable } from "./client";
+import { escapeFormulaValue } from "./formula";
 import { opportunityContactFields, tables } from "./mapping";
 
 const cf = opportunityContactFields;
@@ -18,9 +19,6 @@ function opt(v: unknown): string | undefined {
   return String(v);
 }
 
-function escapeFormula(v: string): string {
-  return v.replace(/'/g, "\\'");
-}
 
 export const OpportunityContactsRepo = {
   /** All NEW - Contacts, minimal shape. Used by the duplicate-detection sweep. */
@@ -62,11 +60,11 @@ export const OpportunityContactsRepo = {
 
   /** Find one contact by email (case-insensitive), or null. */
   async findByEmail(email: string): Promise<OpportunityContact | null> {
-    const e = escapeFormula(email.trim().toLowerCase());
+    const e = escapeFormulaValue(email.trim().toLowerCase());
     if (!e) return null;
     const recs = await airtable.listAll<Record<string, unknown>>(
       tables.opportunityContacts,
-      { filterByFormula: `LOWER({${cf.email}})='${e}'`, pageSize: 1 },
+      { filterByFormula: `LOWER({${cf.email}})='${e}'`, pageSize: 1, maxRecords: 1 },
     );
     const r = recs[0];
     return r

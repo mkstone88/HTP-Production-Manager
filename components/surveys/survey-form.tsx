@@ -63,23 +63,46 @@ export function SurveyForm({ surveyId }: { surveyId: string }) {
     );
   }
 
-  /** PATCH one field now. null clears it in Airtable. */
+  // Fields whose save failed, queued so the NEXT save (any field) re-sends
+  // them — a flaky moment in an appointment heals itself instead of silently
+  // dropping the answer.
+  const failed = useRef<Partial<Record<keyof Answers, unknown>>>({});
+
+  /** PATCH one field now (plus any previously failed ones). null clears it. */
   function persist(key: keyof Answers, value: unknown) {
+    const payload: Record<string, unknown> = {
+      ...failed.current,
+      [key]: value ?? null,
+    };
     setPending((n) => n + 1);
     fetch(`/api/surveys/${surveyId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ [key]: value ?? null }),
+      body: JSON.stringify(payload),
     })
       .then(async (res) => {
         if (!res.ok) {
           const data = (await res.json()) as { error?: string };
           throw new Error(data.error || "Save failed");
         }
+        for (const k of Object.keys(payload)) {
+          delete failed.current[k as keyof Answers];
+        }
         setSaveError("");
       })
-      .catch((e) => setSaveError(e instanceof Error ? e.message : "Save failed"))
+      .catch((e) => {
+        for (const [k, v] of Object.entries(payload)) {
+          failed.current[k as keyof Answers] = v;
+        }
+        setSaveError(e instanceof Error ? e.message : "Save failed");
+      })
       .finally(() => setPending((n) => n - 1));
+  }
+
+  /** Re-send everything in the failed queue without needing a new edit. */
+  function retryFailed() {
+    const [entry] = Object.entries(failed.current);
+    if (entry) persist(entry[0] as keyof Answers, entry[1]);
   }
 
   /** Taps save immediately; typed text debounces so we don't PATCH per keystroke. */
@@ -139,7 +162,9 @@ export function SurveyForm({ surveyId }: { surveyId: string }) {
           )}
         >
           {saveError ? (
-            "Save failed — retrying on next change"
+            <button type="button" onClick={retryFailed} className="underline">
+              Save failed — tap to retry
+            </button>
           ) : pending > 0 ? (
             <>
               <CloudUpload className="size-3.5" /> Saving…

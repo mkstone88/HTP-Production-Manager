@@ -14,7 +14,7 @@ import { listAllInvoices } from "@/lib/paintscout";
 const CENTRAL = "America/Chicago";
 
 /** Central-time calendar date (YYYY-MM-DD) for an ISO datetime or date string. */
-function centralDate(iso: string): string {
+export function centralDate(iso: string): string {
   if (!iso) return "";
   if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso; // date-only fields pass through
   const d = new Date(iso);
@@ -28,7 +28,7 @@ function centralDate(iso: string): string {
 }
 
 /** Monday (YYYY-MM-DD) of the week containing the given date string. */
-function mondayOf(dateStr: string): string {
+export function mondayOf(dateStr: string): string {
   const [y, m, d] = dateStr.split("-").map(Number);
   const dt = new Date(Date.UTC(y, m - 1, d));
   const dow = dt.getUTCDay(); // 0=Sun

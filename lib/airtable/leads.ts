@@ -3,6 +3,7 @@ import "server-only";
 import { computeNextFollowUp, daysSince, queueState } from "@/lib/leads/cadence";
 import { ghlContactUrl } from "@/lib/ghl";
 import { airtable, type AirtableRecord } from "./client";
+import { escapeFormulaValue } from "./formula";
 import { prependNote } from "./notes";
 import { opportunityFields, tables } from "./mapping";
 import { OpportunityContactsRepo } from "./opportunity-contacts";
@@ -24,9 +25,6 @@ function num(v: unknown): number {
 }
 function firstLinkId(v: unknown): string | undefined {
   return Array.isArray(v) && v.length > 0 ? String(v[0]) : undefined;
-}
-function escapeFormula(v: string): string {
-  return v.replace(/'/g, "\\'");
 }
 
 /** Build the client-facing Lead from a record + an optional enriched contact name. */
@@ -285,7 +283,7 @@ export const LeadsRepo = {
 
   /** Find leads across ALL statuses by name, email, or phone (min 2 chars). */
   async search(q: string): Promise<Lead[]> {
-    const needle = escapeFormula(q.trim().toLowerCase());
+    const needle = escapeFormulaValue(q.trim().toLowerCase());
     const recs = await airtable.listAll<OppFields>(tables.opportunities, {
       filterByFormula:
         `OR(` +
@@ -375,11 +373,12 @@ export const LeadsRepo = {
 
   /** Whether an opportunity already exists for a GHL opportunity id (idempotent import). */
   async existsByGhlId(ghlOpportunityId: string): Promise<boolean> {
-    const g = escapeFormula(ghlOpportunityId);
+    const g = escapeFormulaValue(ghlOpportunityId);
     if (!g) return false;
     const recs = await airtable.listAll<OppFields>(tables.opportunities, {
       filterByFormula: `{${f.ghlOpportunityId}}='${g}'`,
       pageSize: 1,
+      maxRecords: 1,
     });
     return recs.length > 0;
   },

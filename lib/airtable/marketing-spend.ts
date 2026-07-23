@@ -1,6 +1,7 @@
 import "server-only";
 
 import { airtable, type AirtableRecord } from "./client";
+import { escapeFormulaValue } from "./formula";
 import { marketingSpendFields, tables } from "./mapping";
 import type {
   MarketingSpendInput,
@@ -24,9 +25,6 @@ function fromRecord(rec: AirtableRecord<SpendFields>): MarketingSpendRow {
   };
 }
 
-function escapeFormula(v: string): string {
-  return v.replace(/'/g, "\\'");
-}
 
 export const MarketingSpendRepo = {
   /** Every spend row. Small table (one row per source per month). */
@@ -41,8 +39,9 @@ export const MarketingSpendRepo = {
    */
   async upsert(input: MarketingSpendInput): Promise<MarketingSpendRow> {
     const existing = await airtable.listAll<SpendFields>(tables.marketingSpend, {
-      filterByFormula: `AND(DATETIME_FORMAT({${f.month}}, 'YYYY-MM')='${input.month}', {${f.source}}='${escapeFormula(input.source)}')`,
+      filterByFormula: `AND(DATETIME_FORMAT({${f.month}}, 'YYYY-MM')='${input.month}', {${f.source}}='${escapeFormulaValue(input.source)}')`,
       pageSize: 2,
+      maxRecords: 2,
     });
 
     const fields: SpendFields = {

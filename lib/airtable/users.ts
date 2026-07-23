@@ -2,6 +2,7 @@ import "server-only";
 
 import { isRole, type Role } from "@/lib/roles";
 import { airtable, type AirtableRecord } from "./client";
+import { escapeFormulaValue } from "./formula";
 import { tables, userFields } from "./mapping";
 import type { AppUser } from "./types";
 
@@ -64,9 +65,6 @@ function toFields(p: CreateUserInput | UserPatch): Record<string, unknown> {
   return out;
 }
 
-function escapeFormulaString(s: string): string {
-  return s.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-}
 
 export const UsersRepo = {
   async list(): Promise<AppUser[]> {
@@ -84,10 +82,11 @@ export const UsersRepo = {
   },
 
   async findByEmailWithSecret(email: string): Promise<UserWithSecret | null> {
-    const formula = `LOWER({${userFields.email}}) = "${escapeFormulaString(email.toLowerCase())}"`;
+    const formula = `LOWER({${userFields.email}}) = "${escapeFormulaValue(email.toLowerCase(), '"')}"`;
     const records = await airtable.listAll<UserAirtableFields>(tables.users, {
       filterByFormula: formula,
       pageSize: 1,
+      maxRecords: 1,
     });
     const rec = records[0];
     return rec ? { user: fromRecord(rec), passwordHash: passwordHashOf(rec) } : null;

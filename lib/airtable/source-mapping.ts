@@ -1,13 +1,11 @@
 import "server-only";
 
 import { airtable } from "./client";
+import { escapeFormulaValue } from "./formula";
 import { sourceMappingFields, tables } from "./mapping";
 
 const sf = sourceMappingFields;
 
-function escapeFormula(v: string): string {
-  return v.replace(/'/g, "\\'");
-}
 
 export const SourceMappingRepo = {
   /**
@@ -20,8 +18,9 @@ export const SourceMappingRepo = {
     const existing = await airtable.listAll<Record<string, unknown>>(
       tables.sourceMapping,
       {
-        filterByFormula: `LOWER({${sf.rawValue}})='${escapeFormula(raw.toLowerCase())}'`,
+        filterByFormula: `LOWER({${sf.rawValue}})='${escapeFormulaValue(raw.toLowerCase())}'`,
         pageSize: 1,
+        maxRecords: 1,
       },
     );
     if (existing[0]) {

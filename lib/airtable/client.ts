@@ -35,6 +35,39 @@ class AirtableError extends Error {
   }
 }
 
+// ---- Rate limiting + retry --------------------------------------------------
+// Airtable allows 5 requests/second per base. Sequential write loops (sibling
+// source updates, reconcile sweeps, backfill) can trip that; a 429 puts the
+// base in a penalty box for ~30s. Two lines of defense:
+//  1. A minimum-spacing throttle keeps this process at 4 req/s.
+//  2. 429 and transient 5xx responses retry with backoff, honoring Retry-After.
+
+const MIN_REQUEST_SPACING_MS = 250; // 4 req/s, margin under Airtable's 5
+const MAX_ATTEMPTS = 4;
+const MAX_RETRY_DELAY_MS = 30_000;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+let nextSlot = 0;
+/** Wait for the next request slot (min spacing between request starts). */
+async function throttle(): Promise<void> {
+  const now = Date.now();
+  const slot = Math.max(now, nextSlot);
+  nextSlot = slot + MIN_REQUEST_SPACING_MS;
+  if (slot > now) await sleep(slot - now);
+}
+
+function retryDelayMs(res: Response, attempt: number): number {
+  const retryAfter = Number(res.headers.get("Retry-After"));
+  const ms =
+    Number.isFinite(retryAfter) && retryAfter >= 0
+      ? retryAfter * 1000
+      : 500 * 2 ** (attempt - 1);
+  return Math.min(ms, MAX_RETRY_DELAY_MS);
+}
+
 async function request<T = unknown>(
   path: string,
   opts: RequestOpts = {},
@@ -47,18 +80,26 @@ async function request<T = unknown>(
     }
   }
 
-  const res = await fetch(url, {
-    method: opts.method ?? "GET",
-    headers: {
-      Authorization: `Bearer ${pat}`,
-      "Content-Type": "application/json",
-    },
-    body: opts.body ? JSON.stringify(opts.body) : undefined,
-    next: opts.next,
-    cache: opts.cache,
-  });
+  for (let attempt = 1; ; attempt++) {
+    await throttle();
+    const res = await fetch(url, {
+      method: opts.method ?? "GET",
+      headers: {
+        Authorization: `Bearer ${pat}`,
+        "Content-Type": "application/json",
+      },
+      body: opts.body ? JSON.stringify(opts.body) : undefined,
+      next: opts.next,
+      cache: opts.cache,
+    });
 
-  if (!res.ok) {
+    if (res.ok) return (await res.json()) as T;
+
+    if ((res.status === 429 || res.status >= 500) && attempt < MAX_ATTEMPTS) {
+      await sleep(retryDelayMs(res, attempt));
+      continue;
+    }
+
     let type: string | undefined;
     let message = `Airtable ${res.status} ${res.statusText}`;
     try {
@@ -70,8 +111,6 @@ async function request<T = unknown>(
     }
     throw new AirtableError(message, res.status, type);
   }
-
-  return (await res.json()) as T;
 }
 
 export const airtable = {
@@ -150,6 +189,27 @@ export const airtable = {
       `/${baseId}/${encodeURIComponent(tableIdOrName)}/${recordId}`,
       { method: "PATCH", body: { fields } },
     );
+  },
+
+  /**
+   * Update many records with Airtable's batch endpoint (10 records per
+   * request) instead of one PATCH per record — an order of magnitude fewer
+   * requests for loops like "apply this source to every sibling lead".
+   */
+  async updateMany<T = Record<string, unknown>>(
+    tableIdOrName: string,
+    records: Array<{ id: string; fields: Partial<T> }>,
+  ): Promise<AirtableRecord<T>[]> {
+    const { baseId } = requireAirtableEnv();
+    const out: AirtableRecord<T>[] = [];
+    for (let i = 0; i < records.length; i += 10) {
+      const page = await request<{ records: AirtableRecord<T>[] }>(
+        `/${baseId}/${encodeURIComponent(tableIdOrName)}`,
+        { method: "PATCH", body: { records: records.slice(i, i + 10) } },
+      );
+      out.push(...page.records);
+    }
+    return out;
   },
 
   async delete(tableIdOrName: string, recordId: string): Promise<void> {
