@@ -90,16 +90,25 @@ analytics) outpacing the discipline of the original core.
 
 ## 3. UI/UX for field use
 
-- **U1:** Schedule's mobile drawer (z-20) is buried under the bottom nav
-  (z-30) for multi-role users. Offset drawer by nav height.
-- **U2:** Pinch-zoom disabled (`userScalable: false` in `app/layout.tsx`).
-  The 16px-input trick already prevents iOS focus-zoom; drop it.
-- **U3:** Backgrounded PWA shows stale data on reopen
-  (`refetchOnWindowFocus: false`). Re-enable — visibilitychange fires on
-  PWA resume.
-- **U4:** No service worker — offline shows a raw browser error page.
-  Minimal offline fallback + cached shell. Also `start_url: "/schedule"`
-  is wrong for Sales/Setter installs; use `/` + role landing.
+- **U1 — FIXED 2026-07-23:** Schedule drawer no longer buried under the
+  bottom nav. AppShell publishes `--app-bottom-nav`/`--app-drawer-inset`
+  (globals.css) via a `has-bottom-nav` class; the drawer offsets itself
+  and adds home-indicator padding only when there's no switcher below it.
+  Switcher tabs pinned to h-14 so the offsets are exact; `<main>` padding
+  now includes the safe-area inset it previously under-counted.
+- **U2 — FIXED 2026-07-23:** Pinch-zoom re-enabled (dropped
+  `maximumScale`/`userScalable`; the 16px-input rule keeps iOS focus-zoom
+  suppressed).
+- **U3 — FIXED 2026-07-23:** `refetchOnWindowFocus` back to default —
+  reopening the backgrounded PWA refetches stale queries (staleTime 30s
+  still damps quick tab-flips).
+- **U4 — FIXED 2026-07-23:** Minimal service worker (`public/sw.js`,
+  registered in production only): network-first navigations with a
+  branded `offline.html` fallback, cache-first immutable assets
+  (`/_next/static`, icons, branding), `/api` never cached. `sw.js` +
+  `offline.html` added to PUBLIC_PATHS. `start_url` now `/` so every
+  role's install lands via the role-based redirect. The v1 roadmap's
+  richer SW (SWR shell, offline queue) remains future work.
 - **U5:** Touch targets on newer screens too small (analytics chips ~26px,
   reconcile survivor radios 14px, GHL deep link is a tiny chip).
   `prompt()`/`confirm()` used for notes and destructive confirmations —

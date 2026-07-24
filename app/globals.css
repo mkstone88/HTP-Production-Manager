@@ -274,3 +274,26 @@
 .fc .fc-dayGridWeek-view .fc-event {
   white-space: normal;
 }
+
+/* --- Mobile bottom-nav offsets ---------------------------------------------
+   AppShell adds `has-bottom-nav` when the fixed section switcher is rendered
+   (multi-section users, <md only). Fixed-bottom UI inside pages reads:
+   - --app-bottom-nav: how far to lift off the viewport bottom to clear the
+     switcher (0 when there is none, or on >=md where it's hidden);
+   - --app-drawer-inset: home-indicator padding a bottom sheet should add
+     itself — zero when the switcher is present (the switcher already pads
+     the inset). */
+:root {
+  --app-bottom-nav: 0px;
+  --app-drawer-inset: env(safe-area-inset-bottom);
+}
+.has-bottom-nav {
+  --app-bottom-nav: calc(3.5rem + env(safe-area-inset-bottom));
+  --app-drawer-inset: 0px;
+}
+@media (min-width: 768px) {
+  .has-bottom-nav {
+    --app-bottom-nav: 0px;
+    --app-drawer-inset: env(safe-area-inset-bottom);
+  }
+}

@@ -5,7 +5,10 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "Hometown Painting — Production",
     short_name: "Hometown",
     description: "Schedule and manage painting jobs and subcontractors.",
-    start_url: "/schedule",
+    // "/" so every role lands right: the login redirect / role-based landing
+    // picks the section (a Sales or Setter install must not boot into a
+    // Production-only route).
+    start_url: "/",
     display: "standalone",
     background_color: "#ffffff",
     theme_color: "#0e3f86",

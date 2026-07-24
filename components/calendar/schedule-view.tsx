@@ -366,8 +366,10 @@ export function ScheduleView() {
           className={cn(
             "z-20 border-t bg-card transition-transform duration-300 ease-out",
             "lg:relative lg:order-first lg:w-72 lg:shrink-0 lg:translate-y-0 lg:border-r lg:border-t-0",
-            // Mobile: fixed bottom drawer; transform between collapsed and expanded
-            "fixed inset-x-0 bottom-0 max-h-[70dvh] rounded-t-xl shadow-[0_-8px_24px_rgba(0,0,0,0.08)] lg:max-h-none lg:rounded-none lg:shadow-none",
+            // Mobile: fixed bottom drawer; transform between collapsed and
+            // expanded. Bottom offset lifts it above the section switcher
+            // when one is present (--app-bottom-nav, see globals.css).
+            "fixed inset-x-0 bottom-[var(--app-bottom-nav,0px)] max-h-[70dvh] rounded-t-xl shadow-[0_-8px_24px_rgba(0,0,0,0.08)] lg:bottom-0 lg:max-h-none lg:rounded-none lg:shadow-none",
             drawerOpen ? "translate-y-0" : "translate-y-[calc(100%-3.25rem)]",
           )}
           aria-label="Unscheduled jobs"
@@ -428,7 +430,7 @@ export function ScheduleView() {
             </button>
           </div>
 
-          <div className="flex flex-col gap-2 overflow-y-auto overscroll-contain px-3 pb-4 lg:max-h-[calc(100dvh-9rem)]">
+          <div className="flex flex-col gap-2 overflow-y-auto overscroll-contain px-3 pb-[calc(1rem+var(--app-drawer-inset,0px))] lg:max-h-[calc(100dvh-9rem)] lg:pb-4">
             {loading && (
               <div className="text-sm text-muted-foreground">Loading…</div>
             )}

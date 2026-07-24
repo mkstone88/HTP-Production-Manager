@@ -10,6 +10,10 @@ const PUBLIC_PATHS = [
   // Reconcile endpoints self-authorize (Office Admin session OR Bearer
   // CRON_SECRET) so Vercel Cron can reach them with no session cookie.
   "/api/reconcile",
+  // PWA plumbing: the service worker script and its offline fallback must be
+  // fetchable without a session or registration/precache breaks.
+  "/sw.js",
+  "/offline.html",
 ];
 
 function matchesPrefix(pathname: string, prefixes: string[]): boolean {

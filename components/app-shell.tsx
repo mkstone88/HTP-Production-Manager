@@ -44,7 +44,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const showSwitcher = sections.length > 1;
 
   return (
-    <div className="flex min-h-dvh flex-col md:flex-row">
+    // `has-bottom-nav` publishes --app-bottom-nav / --app-drawer-inset (see
+    // globals.css) so fixed-bottom UI inside pages — e.g. the Schedule
+    // drawer — can sit above the section switcher instead of underneath it.
+    <div
+      className={cn(
+        "flex min-h-dvh flex-col md:flex-row",
+        showSwitcher && "has-bottom-nav",
+      )}
+    >
       {/* Desktop / tablet sidebar — grouped by section */}
       <aside className="hidden md:flex md:w-60 md:shrink-0 md:flex-col md:border-r md:bg-sidebar md:text-sidebar-foreground">
         <div className="flex items-center px-4 py-5">
@@ -188,8 +196,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </nav>
       )}
 
-      {/* Main content */}
-      <main className={cn("flex flex-1 flex-col", showSwitcher ? "pb-16 md:pb-0" : "")}>
+      {/* Main content — padded by the real switcher height (incl. the iOS
+          home-indicator inset, which pb-16 under-counted). */}
+      <main
+        className={cn(
+          "flex flex-1 flex-col",
+          showSwitcher &&
+            "pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:pb-0",
+        )}
+      >
         {children}
       </main>
 
@@ -230,7 +245,9 @@ function SectionTab({
     <Link
       href={href}
       className={cn(
-        "relative flex flex-col items-center justify-center gap-1 px-1 py-2 text-center text-[11px] leading-tight transition-colors",
+        // Fixed h-14 so the switcher's height is exactly the 3.5rem that
+        // --app-bottom-nav and the <main> bottom padding assume.
+        "relative flex h-14 flex-col items-center justify-center gap-1 px-1 text-center text-[11px] leading-tight transition-colors",
         active ? "text-primary" : "text-muted-foreground",
       )}
     >

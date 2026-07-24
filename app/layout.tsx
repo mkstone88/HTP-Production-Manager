@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 
 import { QueryProvider } from "@/components/query-provider";
+import { ServiceWorkerRegister } from "@/components/sw-register";
 
 import "./globals.css";
 
@@ -34,12 +35,13 @@ export const metadata: Metadata = {
   },
 };
 
+// Pinch-zoom stays enabled (WCAG 1.4.4, and sun-glare zooming is real field
+// use). iOS auto-zoom on input focus is prevented by 16px input font-size in
+// globals.css, not by capping user zoom.
 export const viewport: Viewport = {
   themeColor: "#0e3f86",
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
   viewportFit: "cover",
 };
 
@@ -55,6 +57,7 @@ export default function RootLayout({
     >
       <body className="min-h-dvh bg-background text-foreground">
         <QueryProvider>{children}</QueryProvider>
+        <ServiceWorkerRegister />
       </body>
     </html>
   );

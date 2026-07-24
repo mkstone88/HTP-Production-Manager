@@ -10,7 +10,10 @@ export function QueryProvider({ children }: { children: React.ReactNode }) {
         defaultOptions: {
           queries: {
             staleTime: 30_000,
-            refetchOnWindowFocus: false,
+            // Focus refetch stays ON: visibilitychange fires when the
+            // installed PWA resumes from the background, which is how stale
+            // morning data refreshes when the app reopens in the afternoon.
+            // staleTime above keeps quick tab-flips from thrashing.
             retry: 1,
           },
         },

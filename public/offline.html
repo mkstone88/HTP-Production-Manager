@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Offline — Hometown Painting</title>
+    <style>
+      body {
+        margin: 0;
+        min-height: 100dvh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+        background: #f8fafc;
+        color: #0f172a;
+        text-align: center;
+        padding: 24px;
+      }
+      main { max-width: 22rem; }
+      h1 { font-size: 1.25rem; margin: 0 0 0.5rem; }
+      p { margin: 0 0 1.25rem; font-size: 0.95rem; color: #475569; line-height: 1.5; }
+      button {
+        font: inherit;
+        font-weight: 600;
+        color: #fff;
+        background: #0e3f86;
+        border: 0;
+        border-radius: 0.5rem;
+        padding: 0.75rem 1.5rem;
+        min-height: 44px;
+        cursor: pointer;
+      }
+      button:active { opacity: 0.85; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>You&rsquo;re offline</h1>
+      <p>
+        No connection right now. Changes you tried to make were not saved —
+        once you have signal again, retry them.
+      </p>
+      <button onclick="location.reload()">Try again</button>
+    </main>
+  </body>
+</html>
